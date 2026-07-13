@@ -101,7 +101,9 @@ export function FeedPostCard({
           <span className="privacy-badge">{visibilityLabel}</span>
         </div>
 
-        <p className="post-body">{post.body}</p>
+        {post.imageUrl ? <img className="post-image" src={post.imageUrl} alt="" /> : null}
+
+        {post.body ? <p className="post-body">{post.body}</p> : null}
       </button>
 
       <div className="stack" style={{ gap: 10 }} data-no-nav="true">

@@ -5,6 +5,7 @@ import { errorHandler } from "./lib/errors.js";
 import { authRouter } from "./routes/auth.js";
 import { feedRouter } from "./routes/feed.js";
 import { friendsRouter } from "./routes/friends.js";
+import { mediaRouter } from "./routes/media.js";
 import { meRouter } from "./routes/me.js";
 import { postsRouter } from "./routes/posts.js";
 import { usersRouter } from "./routes/users.js";
@@ -30,7 +31,7 @@ export function createApp() {
   app.use((req, res, next) => {
     const shouldLogRequest =
       shouldLogDebugRequests &&
-      ["/auth", "/feed", "/friends", "/users"].some((path) => req.path.startsWith(path));
+      ["/auth", "/feed", "/friends", "/media", "/users"].some((path) => req.path.startsWith(path));
 
     if (!shouldLogRequest) {
       next();
@@ -53,6 +54,7 @@ export function createApp() {
   app.use("/auth", authRouter);
   app.use("/me", meRouter);
   app.use("/feed", feedRouter);
+  app.use("/media", mediaRouter);
   app.use("/posts", postsRouter);
   app.use("/friends", friendsRouter);
   app.use("/users", usersRouter);

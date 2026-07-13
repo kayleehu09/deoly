@@ -1,5 +1,6 @@
 import type { AllowedReactionEmoji, FeedComment, FeedPost, UserProfile } from "@sanctuary/shared";
 import { ALLOWED_REACTION_EMOJIS } from "@sanctuary/shared";
+import { createPostImageReadUrl } from "./storage.js";
 
 export function toUserProfile(user: {
   id: string;
@@ -43,6 +44,7 @@ export function toFeedComment(comment: {
 export type FeedPostRecord = {
   id: string;
   body: string;
+  imageObjectKey: string | null;
   kind: "DEOLY" | "PERMANENT";
   visibility: "FRIENDS" | "CLOSE_CIRCLE";
   expiresAt: Date | null;
@@ -71,7 +73,7 @@ export type FeedPostRecord = {
   }>;
 };
 
-export function toFeedPost(post: FeedPostRecord, viewerId: string): FeedPost {
+export async function toFeedPost(post: FeedPostRecord, viewerId: string): Promise<FeedPost> {
   const reactionCounts = Object.fromEntries(ALLOWED_REACTION_EMOJIS.map((emoji) => [emoji, 0])) as Partial<
     Record<AllowedReactionEmoji, number>
   >;
@@ -89,6 +91,7 @@ export function toFeedPost(post: FeedPostRecord, viewerId: string): FeedPost {
   return {
     id: post.id,
     body: post.body,
+    imageUrl: post.imageObjectKey ? await createPostImageReadUrl(post.imageObjectKey) : null,
     kind: post.kind === "PERMANENT" ? "permanent" : "deoly",
     visibility: post.visibility === "CLOSE_CIRCLE" ? "close_circle" : "friends",
     expiresAt: post.expiresAt?.toISOString() ?? null,

@@ -8,6 +8,7 @@ let mockPostStore = [...mockPosts];
 type BackendFeedPost = {
   id: string;
   body: string;
+  imageUrl: string | null;
   kind: 'deoly' | 'permanent';
   visibility: 'friends' | 'close_circle';
   expiresAt: string | null;
@@ -28,13 +29,21 @@ type BackendCreatePostResponse = {
   post: BackendFeedPost;
 };
 
+type BackendCreateMediaUploadResponse = {
+  objectKey: string;
+  uploadUrl: string;
+  expiresAt: string;
+  headers: Record<string, string>;
+};
+
 const DEFAULT_PROFILE_IMAGE_URL = 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=400&q=80';
+const POST_IMAGE_CONTENT_TYPE = 'image/jpeg';
 
 function toMobileFeedPost(post: BackendFeedPost): FeedPost {
   return {
     id: post.id,
     userId: post.author.id,
-    imageUrl: null,
+    imageUrl: post.imageUrl,
     caption: post.body,
     createdAt: post.createdAt,
     expiresAt: post.expiresAt,
@@ -93,6 +102,39 @@ export async function getPermanentPostsForUser(userId: string, token?: string): 
   return filterPermanentPostsForProfile(mockPostStore, userId);
 }
 
+async function uploadPostImage(imageUri: string, token: string) {
+  const imageResponse = await fetch(imageUri);
+
+  if (!imageResponse.ok) {
+    throw new Error('Could not read the captured photo.');
+  }
+
+  const imageBlob = await imageResponse.blob();
+  const upload = await apiFetch<BackendCreateMediaUploadResponse>(
+    '/media/uploads',
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        contentType: POST_IMAGE_CONTENT_TYPE,
+        byteSize: imageBlob.size
+      })
+    },
+    token
+  );
+
+  const uploadResponse = await fetch(upload.uploadUrl, {
+    method: 'PUT',
+    headers: upload.headers,
+    body: imageBlob
+  });
+
+  if (!uploadResponse.ok) {
+    throw new Error('Photo upload failed. Please try again.');
+  }
+
+  return upload.objectKey;
+}
+
 export async function createPost(input: {
   userId: string;
   imageUrl: string;
@@ -100,12 +142,14 @@ export async function createPost(input: {
   token?: string;
 }): Promise<Post> {
   if (input.token) {
+    const imageObjectKey = await uploadPostImage(input.imageUrl, input.token);
     const response = await apiFetch<BackendCreatePostResponse>(
       '/posts',
       {
         method: 'POST',
         body: JSON.stringify({
           body: input.caption,
+          imageObjectKey,
           visibility: 'friends',
           kind: 'deoly'
         })
@@ -132,8 +176,5 @@ export async function createPost(input: {
   return newPost;
 }
 
-// Future Firestore/Storage shape:
-// 1. Upload image bytes to Firebase Storage.
-// 2. Create a Firestore document in `posts`.
-// 3. Query friend-only feed with friendship edges and expiry filters.
-// 4. Swap this in-memory store for Firestore listeners.
+// Provider-specific photo storage stays behind the API so the mobile app can
+// keep the same posting flow if storage providers change later.

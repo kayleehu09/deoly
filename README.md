@@ -18,7 +18,7 @@ Included in the skeleton:
 - post composer with optional caption; MVP posts disappear after 24 hours
 - reverse-chronological home feed with close-friend prioritization
 - profile screen with account stats, recent deolys, friends, and a placeholder for future saved posts
-- Firebase Firestore and Storage scaffolding for later integration
+- API-backed private photo uploads using Cloudflare R2 signed URLs
 - mock current user, mock users, and mock posts so the app runs before auth/backend wiring
 
 ## Mobile folder structure
@@ -77,21 +77,27 @@ Your phone and computer need to be on the same Wi-Fi network.
 If you want to recreate the mobile app dependencies manually inside `apps/mobile`, use:
 
 ```bash
-npm install @react-navigation/native @react-navigation/bottom-tabs @react-navigation/native-stack firebase
+npm install @react-navigation/native @react-navigation/bottom-tabs @react-navigation/native-stack
 npx expo install expo expo-camera expo-status-bar react-native react-native-screens react-native-safe-area-context react-native-gesture-handler
 ```
 
-## Firebase services to enable later
+## R2 photo storage setup
 
-- Firestore Database
-- Firebase Storage
-- Authentication when Phase 2 or later introduces login/signup
+Photo storage is intentionally kept behind the API so the mobile app does not depend on a storage provider directly.
+Create a private Cloudflare R2 bucket and set these API environment variables:
 
-Replace the placeholder config in `apps/mobile/src/services/firebase.ts` with your project values before connecting real data.
+```bash
+R2_ACCOUNT_ID=""
+R2_ACCESS_KEY_ID=""
+R2_SECRET_ACCESS_KEY=""
+R2_BUCKET_NAME=""
+R2_UPLOAD_URL_TTL_SECONDS=300
+R2_READ_URL_TTL_SECONDS=300
+```
 
 ## What to build next
 
-1. Replace mock services with Firestore reads and Storage uploads.
-2. Add auth scaffolding with anonymous or email-based development auth first.
-3. Add friend graph persistence so feed privacy is enforced by real data.
-4. Add reminders/notifications and a lightweight edit/retry flow for captured photos.
+1. Add upload progress and retry UI for slower mobile connections.
+2. Add reactions and comments to real photo posts.
+3. Add block/report safety flows.
+4. Run a full private-beta smoke test with three seeded users.

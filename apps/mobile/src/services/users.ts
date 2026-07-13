@@ -22,8 +22,8 @@ export async function getUserById(userId: string): Promise<User | undefined> {
   return mockUserStore.find((item) => item.id === userId);
 }
 
-// Future Firestore shape:
-// export async function getCurrentUserFromFirestore(userId: string) {
+// Future backend shape:
+// export async function getCurrentUserFromApi(userId: string) {
 //   const snapshot = await getDoc(doc(db, 'users', userId));
 //   return snapshot.data();
 // }

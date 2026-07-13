@@ -57,6 +57,7 @@ export interface FeedComment {
 export interface FeedPost {
   id: string;
   body: string;
+  imageUrl: string | null;
   kind: PostKind;
   visibility: PostVisibility;
   expiresAt: string | null;
@@ -101,8 +102,21 @@ export interface SearchUsersResponse {
 
 export interface CreatePostInput {
   body: string;
+  imageObjectKey?: string;
   visibility: PostVisibility;
   kind?: PostKind;
+}
+
+export interface CreateMediaUploadInput {
+  contentType: "image/jpeg" | "image/png" | "image/webp";
+  byteSize: number;
+}
+
+export interface CreateMediaUploadResponse {
+  objectKey: string;
+  uploadUrl: string;
+  expiresAt: string;
+  headers: Record<string, string>;
 }
 
 export interface CreateCommentInput {

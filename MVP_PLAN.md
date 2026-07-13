@@ -69,7 +69,8 @@ The phone app has a real friends-only feed, and old posts can disappear after 24
 Week 4: Photo Post Backend + Storage
 Build:
 Add photo field to posts
-Choose photo storage: Firebase/Supabase/S3/Cloudflare R2
+Choose photo storage: Cloudflare R2 for the MVP
+Keep photo storage behind a thin backend storage layer so provider-specific code does not affect user-facing posting flows or future engagement A/B tests
 Connect backend/app to photo storage
 Upload a photo from the phone
 Save uploaded photo path/link to a post

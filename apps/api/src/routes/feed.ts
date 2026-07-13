@@ -65,13 +65,15 @@ feedRouter.get("/", requireAuth, async (req, res, next) => {
     });
 
     res.json({
-      items: posts.map((post) =>
-        toFeedPost(
-          {
-            ...post,
-            comments: [...post.comments].reverse()
-          },
-          viewerId
+      items: await Promise.all(
+        posts.map((post) =>
+          toFeedPost(
+            {
+              ...post,
+              comments: [...post.comments].reverse()
+            },
+            viewerId
+          )
         )
       )
     });

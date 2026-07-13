@@ -9,6 +9,22 @@ vi.mock("bcryptjs", () => ({
   }
 }));
 
+vi.mock("../lib/storage.js", () => ({
+  ALLOWED_IMAGE_CONTENT_TYPES: ["image/jpeg", "image/png", "image/webp"],
+  MAX_IMAGE_UPLOAD_BYTES: 8 * 1024 * 1024,
+  createPostImageReadUrl: vi.fn(async (objectKey: string) => `https://photos.example.test/${objectKey}`),
+  createPostImageUpload: vi.fn(async ({ userId, contentType }: { userId: string; contentType: string }) => ({
+    objectKey: `users/${userId}/posts/test-photo.${contentType.split("/")[1]}`,
+    uploadUrl: "https://upload.example.test/photo",
+    expiresAt: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+    headers: {
+      "content-type": contentType
+    }
+  })),
+  isAllowedImageContentType: (contentType: string) => ["image/jpeg", "image/png", "image/webp"].includes(contentType),
+  isPostImageObjectKeyForUser: (objectKey: string, userId: string) => objectKey.startsWith(`users/${userId}/posts/`)
+}));
+
 vi.mock("../lib/prisma.js", () => {
   const now = new Date();
   const hour = 60 * 60 * 1000;
@@ -105,6 +121,7 @@ vi.mock("../lib/prisma.js", () => {
       id: "post_self_new",
       authorId: "user_ava",
       body: "My newest prayer update.",
+      imageObjectKey: "users/user_ava/posts/self-new.jpg",
       kind: "DEOLY",
       visibility: "FRIENDS",
       expiresAt: new Date(now.getTime() + 23 * hour),
@@ -118,6 +135,7 @@ vi.mock("../lib/prisma.js", () => {
       id: "post_1",
       authorId: "ckvvy6f5e000001l6b9fh9a3x",
       body: "Pray for my test tomorrow.",
+      imageObjectKey: "users/ckvvy6f5e000001l6b9fh9a3x/posts/friend.jpg",
       kind: "DEOLY",
       visibility: "FRIENDS",
       expiresAt: new Date(now.getTime() + 22 * hour),
@@ -131,6 +149,7 @@ vi.mock("../lib/prisma.js", () => {
       id: "post_friend_permanent",
       authorId: "ckvvy6f5e000001l6b9fh9a3x",
       body: "A permanent prayer record.",
+      imageObjectKey: null,
       kind: "PERMANENT",
       visibility: "FRIENDS",
       expiresAt: null,
@@ -144,6 +163,7 @@ vi.mock("../lib/prisma.js", () => {
       id: "post_self_expired",
       authorId: "user_ava",
       body: "Expired deoly should stay out of the home feed.",
+      imageObjectKey: "users/user_ava/posts/expired.jpg",
       kind: "DEOLY",
       visibility: "FRIENDS",
       expiresAt: new Date(now.getTime() - 2 * 24 * hour),
@@ -157,6 +177,7 @@ vi.mock("../lib/prisma.js", () => {
       id: "post_non_friend",
       authorId: "ckvvy8r2k000101l68v2ud6mm",
       body: "This should stay out of Ava's feed.",
+      imageObjectKey: "users/ckvvy8r2k000101l68v2ud6mm/posts/non-friend.jpg",
       kind: "DEOLY",
       visibility: "FRIENDS",
       expiresAt: new Date(now.getTime() + 23.5 * hour),
@@ -321,7 +342,8 @@ vi.mock("../lib/prisma.js", () => {
           author: { id: "user_ava", displayName: "Ava Grace", username: "avafaith", avatarUrl: null },
           reactions: [],
           comments: [],
-          ...data
+          ...data,
+          imageObjectKey: data.imageObjectKey ?? null
         })),
         findUnique: vi.fn(async ({ where }) => posts.find((post) => post.id === where.id) ?? null)
       },
@@ -395,6 +417,67 @@ describe("Sanctuary API", () => {
     expect(expiresAt - createdAt).toBe(24 * 60 * 60 * 1000);
   });
 
+  it("creates upload intents for authenticated photo uploads", async () => {
+    const response = await request(app)
+      .post("/media/uploads")
+      .set("authorization", `Bearer ${token}`)
+      .send({ contentType: "image/jpeg", byteSize: 500_000 });
+
+    expect(response.status).toBe(201);
+    expect(response.body.objectKey).toBe("users/user_ava/posts/test-photo.jpeg");
+    expect(response.body.uploadUrl).toBe("https://upload.example.test/photo");
+    expect(response.body.headers["content-type"]).toBe("image/jpeg");
+  });
+
+  it("rejects unauthenticated upload intents", async () => {
+    const response = await request(app).post("/media/uploads").send({ contentType: "image/jpeg", byteSize: 500_000 });
+
+    expect(response.status).toBe(401);
+  });
+
+  it("rejects unsupported or oversized upload intents", async () => {
+    const unsupportedType = await request(app)
+      .post("/media/uploads")
+      .set("authorization", `Bearer ${token}`)
+      .send({ contentType: "image/gif", byteSize: 500_000 });
+    const oversized = await request(app)
+      .post("/media/uploads")
+      .set("authorization", `Bearer ${token}`)
+      .send({ contentType: "image/jpeg", byteSize: 9 * 1024 * 1024 });
+
+    expect(unsupportedType.status).toBe(400);
+    expect(oversized.status).toBe(400);
+  });
+
+  it("creates posts with the authenticated user's photo object key", async () => {
+    const response = await request(app)
+      .post("/posts")
+      .set("authorization", `Bearer ${token}`)
+      .send({
+        body: "A new photo deoly.",
+        imageObjectKey: "users/user_ava/posts/new-photo.jpg",
+        visibility: "friends",
+        kind: "deoly"
+      });
+
+    expect(response.status).toBe(201);
+    expect(response.body.post.imageUrl).toBe("https://photos.example.test/users/user_ava/posts/new-photo.jpg");
+  });
+
+  it("rejects posts that attach another user's photo object key", async () => {
+    const response = await request(app)
+      .post("/posts")
+      .set("authorization", `Bearer ${token}`)
+      .send({
+        body: "Trying to attach another photo.",
+        imageObjectKey: "users/ckvvy6f5e000001l6b9fh9a3x/posts/friend.jpg",
+        visibility: "friends",
+        kind: "deoly"
+      });
+
+    expect(response.status).toBe(403);
+  });
+
   it("creates permanent posts without an expiration time", async () => {
     const response = await request(app)
       .post("/posts")
@@ -412,6 +495,7 @@ describe("Sanctuary API", () => {
     expect(response.status).toBe(200);
     expect(response.body.items).toHaveLength(3);
     expect(response.body.items[1].reactionCounts["🙏"]).toBe(1);
+    expect(response.body.items[0].imageUrl).toBe("https://photos.example.test/users/user_ava/posts/self-new.jpg");
   });
 
   it("shows the authenticated user's posts in the feed", async () => {

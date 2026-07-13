@@ -57,3 +57,11 @@ Pull requests should include a brief summary, test commands run, linked issue or
 ## Security & Configuration Tips
 
 Keep secrets out of git. Mobile Expo Go testing needs `apps/mobile/.env` to point `EXPO_PUBLIC_API_BASE_URL` at your computer LAN API URL, for example `http://10.0.0.24:4000`. Do not make private image or user data publicly accessible when adding storage features.
+
+## Issue Card Updates
+
+After implementing a card, tell me which GitHub issue/card it affects and suggest a short status update I can paste into the issue. Include:
+- what changed
+- tests run
+- what remains
+- whether the card is done or needs a follow-up

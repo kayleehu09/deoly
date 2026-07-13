@@ -5,12 +5,14 @@ import { ApiError } from "../lib/errors.js";
 import { canInteractWithPost, canViewPost, canViewPostRecord } from "../lib/friendships.js";
 import { prisma } from "../lib/prisma.js";
 import { toFeedPost, type FeedPostRecord } from "../lib/serializers.js";
+import { isPostImageObjectKeyForUser } from "../lib/storage.js";
 import { requireAuth } from "../middleware/require-auth.js";
 
 const RECENT_DEOLY_HISTORY_DAYS = 7;
 
 const createPostSchema = z.object({
   body: z.string().trim().max(POST_MAX_LENGTH).default(""),
+  imageObjectKey: z.string().trim().min(1).optional(),
   visibility: z.enum(POST_VISIBILITIES),
   kind: z.enum(POST_KINDS).default("deoly")
 });
@@ -32,10 +34,15 @@ postsRouter.post("/", requireAuth, async (req, res, next) => {
     const createdAt = new Date();
     const expiresAt = input.kind === "deoly" ? new Date(createdAt.getTime() + 24 * 60 * 60 * 1000) : null;
 
+    if (input.imageObjectKey && !isPostImageObjectKeyForUser(input.imageObjectKey, viewerId)) {
+      throw new ApiError(403, "IMAGE_OBJECT_FORBIDDEN", "You cannot attach this photo to your post.");
+    }
+
     const post = await prisma.post.create({
       data: {
         authorId: viewerId,
         body: input.body,
+        imageObjectKey: input.imageObjectKey,
         kind: input.kind === "permanent" ? "PERMANENT" : "DEOLY",
         visibility: input.visibility === "close_circle" ? "CLOSE_CIRCLE" : "FRIENDS",
         expiresAt,
@@ -72,7 +79,7 @@ postsRouter.post("/", requireAuth, async (req, res, next) => {
     });
 
     res.status(201).json({
-      post: toFeedPost(post, viewerId)
+      post: await toFeedPost(post, viewerId)
     });
   } catch (error) {
     next(error);
@@ -126,7 +133,7 @@ postsRouter.get("/me/deolies/recent", requireAuth, async (req, res, next) => {
     });
 
     res.json({
-      items: posts.map((post) => toFeedPost(post, viewerId))
+      items: await Promise.all(posts.map((post) => toFeedPost(post, viewerId)))
     });
   } catch (error) {
     next(error);
@@ -181,7 +188,7 @@ postsRouter.get("/users/:userId/permanent", requireAuth, async (req, res, next) 
     });
 
     res.json({
-      items: posts.map((post) => toFeedPost(post, viewerId))
+      items: await Promise.all(posts.map((post) => toFeedPost(post, viewerId)))
     });
   } catch (error) {
     next(error);
@@ -240,7 +247,7 @@ postsRouter.get("/:id", requireAuth, async (req, res, next) => {
     }
 
     res.json({
-      post: toFeedPost(post as FeedPostRecord, viewerId)
+      post: await toFeedPost(post as FeedPostRecord, viewerId)
     });
   } catch (error) {
     next(error);

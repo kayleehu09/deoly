@@ -297,6 +297,15 @@ textarea {
   line-height: 1.7;
 }
 
+.post-image {
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  object-fit: cover;
+  border-radius: var(--radius-md);
+  background: var(--surface-strong);
+  border: 1px solid rgba(70, 53, 38, 0.08);
+}
+
 .reaction-row {
   display: flex;
   flex-wrap: wrap;
