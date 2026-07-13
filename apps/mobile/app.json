@@ -1,0 +1,33 @@
+{
+  "expo": {
+    "name": "Deoly",
+    "slug": "deoly",
+    "scheme": "deoly",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#FCF7F1"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.deoly.mobile"
+    },
+    "android": {
+      "package": "com.deoly.mobile",
+      "adaptiveIcon": {
+        "backgroundColor": "#FCF7F1"
+      }
+    },
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow Deoly to open your camera so you can share devotional moments."
+        }
+      ],
+      "expo-secure-store"
+    ]
+  }
+}

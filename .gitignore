@@ -1,0 +1,16 @@
+node_modules
+.next
+dist
+.turbo
+.env
+coverage
+.expo
+.expo-shared
+apps/api/prisma/dev.db
+apps/api/prisma/dev.db-journal
+
+.local/
+node_modules/
+.expo/
+.next/
+dist/
