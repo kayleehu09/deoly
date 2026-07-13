@@ -1,6 +1,6 @@
 import { mockPosts } from '../data/mockPosts';
 import { apiFetch } from './auth';
-import type { FeedPost, Post, PostDuration, User } from '../types/models';
+import type { FeedPost, Post, User } from '../types/models';
 import { filterPermanentPostsForProfile, sortFeedPosts } from '../utils/postUtils';
 
 let mockPostStore = [...mockPosts];
@@ -97,7 +97,6 @@ export async function createPost(input: {
   userId: string;
   imageUrl: string;
   caption: string;
-  duration: PostDuration;
   token?: string;
 }): Promise<Post> {
   if (input.token) {
@@ -108,7 +107,7 @@ export async function createPost(input: {
         body: JSON.stringify({
           body: input.caption,
           visibility: 'friends',
-          kind: input.duration === 'permanent' ? 'permanent' : 'deoly'
+          kind: 'deoly'
         })
       },
       input.token
@@ -125,9 +124,8 @@ export async function createPost(input: {
     imageUrl: input.imageUrl,
     caption: input.caption.trim(),
     createdAt: createdAt.toISOString(),
-    expiresAt:
-      input.duration === '24h' ? new Date(createdAt.getTime() + 24 * 60 * 60 * 1000).toISOString() : null,
-    isPermanent: input.duration === 'permanent'
+    expiresAt: new Date(createdAt.getTime() + 24 * 60 * 60 * 1000).toISOString(),
+    isPermanent: false
   };
 
   mockPostStore = [newPost, ...mockPostStore];

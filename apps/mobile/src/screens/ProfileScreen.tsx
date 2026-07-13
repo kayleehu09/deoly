@@ -213,7 +213,7 @@ export function ProfileScreen() {
             {profilePosts.length === 0 ? (
               <View style={styles.emptyState}>
                 <Text style={styles.emptyTitle}>No posts yet</Text>
-                <Text style={styles.emptyText}>Permanent posts will live here.</Text>
+                <Text style={styles.emptyText}>Saved posts can come later.</Text>
               </View>
             ) : null}
             <View style={styles.grid}>

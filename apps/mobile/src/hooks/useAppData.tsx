@@ -11,7 +11,7 @@ import { useAuth } from './useAuth';
 import { createPost, getHomeFeedPosts, getPermanentPostsForUser } from '../services/posts';
 import { getAllUsers } from '../services/users';
 import { isUnauthorizedApiError, type UserProfile } from '../services/auth';
-import type { FeedPost, Post, PostDuration, User } from '../types/models';
+import type { FeedPost, Post, User } from '../types/models';
 
 type AppDataContextValue = {
   currentUser: User | null;
@@ -21,7 +21,7 @@ type AppDataContextValue = {
   isLoading: boolean;
   loadError: string | null;
   refreshAppData: () => Promise<void>;
-  publishPost: (input: { imageUrl: string; caption: string; duration: PostDuration }) => Promise<void>;
+  publishPost: (input: { imageUrl: string; caption: string }) => Promise<void>;
 };
 
 const AppDataContext = createContext<AppDataContextValue | undefined>(undefined);
@@ -131,7 +131,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       setIsLoading(true);
       await loadAppData();
     },
-    publishPost: async ({ imageUrl, caption, duration }) => {
+    publishPost: async ({ imageUrl, caption }) => {
       if (!currentUser || !auth) {
         return;
       }
@@ -140,7 +140,6 @@ export function AppDataProvider({ children }: PropsWithChildren) {
         userId: currentUser.id,
         imageUrl,
         caption,
-        duration,
         token: auth.session.token
       });
 

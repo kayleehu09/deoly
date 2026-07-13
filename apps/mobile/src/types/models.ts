@@ -22,5 +22,3 @@ export interface FeedPost extends Post {
   user: User;
   isCloseFriend: boolean;
 }
-
-export type PostDuration = '24h' | 'permanent';

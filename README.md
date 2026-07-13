@@ -15,9 +15,9 @@ Included in the skeleton:
 
 - bottom-tab navigation with `Home`, `Search`, `Create Post`, and `Profile`
 - camera-first post creation flow with `expo-camera`
-- post composer with optional caption and `24 Hours` vs `Permanent`
+- post composer with optional caption; MVP posts disappear after 24 hours
 - reverse-chronological home feed with close-friend prioritization
-- profile screen showing permanent posts only
+- profile screen with account stats, recent deolys, friends, and a placeholder for future saved posts
 - Firebase Firestore and Storage scaffolding for later integration
 - mock current user, mock users, and mock posts so the app runs before auth/backend wiring
 

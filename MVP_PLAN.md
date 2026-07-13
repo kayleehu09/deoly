@@ -9,6 +9,7 @@ Reacting / Commenting
 Friends (adding, accepting, removing)
 Block / Report
 Disappearing post
+Permanent posts are deferred until after the MVP; the main posting flow should create 24-hour deolys only.
 Safety
 block people, report posts, delete your own posts/account
 blocking needs to affect feed, search, comments, and friend requests
@@ -85,7 +86,6 @@ Show upload/posting progress
 Add retry if upload fails
 Create post after upload
 Return to feed after posting
-Remove “permanent” option for MVP
 Expected result:
 You can take a photo, post it, and see it in the feed.
 
@@ -175,10 +175,10 @@ Richer friend account pages
 Why it matters: the first friend profile page is intentionally simple and uses already-loaded feed data.
 When to revisit: after MVP feed, profile, and posting behavior are reliable.
 Risk if ignored: friend profiles may feel thin, but core feed navigation still works.
-Recheck permanent posts versus MVP scope
-Why it matters: the plan originally said to remove the permanent option, but the app now supports deoly and permanent choices.
-When to revisit: before Week 8 full test.
-Risk if ignored: the app may ship with a feature that needs clearer product rules.
+Saved or permanent posts
+Decision: permanent posting is out of the MVP. Keep the main posting flow focused on 24-hour deolys, and revisit saved/permanent profile posts after the private beta basics work.
+When to revisit: after the MVP feed, posting, reactions, comments, and safety flows are reliable.
+Risk if ignored: low for MVP; the app can still work with disappearing posts only.
 
 MVP Checklist
 Make an account

@@ -2,10 +2,8 @@ import { useState } from 'react';
 import { Image, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
-import { PostTypeToggle } from '../components/PostTypeToggle';
 import { colors, radii, spacing, typography } from '../constants/theme';
 import { useAppData } from '../hooks/useAppData';
-import type { PostDuration } from '../types/models';
 import type { RootStackParamList } from '../types/navigation';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'PostComposer'>;
@@ -13,7 +11,6 @@ type Props = NativeStackScreenProps<RootStackParamList, 'PostComposer'>;
 export function PostComposerScreen({ navigation, route }: Props) {
   const { publishPost } = useAppData();
   const [caption, setCaption] = useState('');
-  const [duration, setDuration] = useState<PostDuration>('24h');
   const [isPosting, setIsPosting] = useState(false);
 
   const handlePost = async () => {
@@ -21,8 +18,7 @@ export function PostComposerScreen({ navigation, route }: Props) {
       setIsPosting(true);
       await publishPost({
         imageUrl: route.params.imageUri,
-        caption,
-        duration
+        caption
       });
 
       navigation.navigate('MainTabs', {
@@ -54,11 +50,6 @@ export function PostComposerScreen({ navigation, route }: Props) {
             maxLength={140}
             style={styles.input}
           />
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.label}>Post duration</Text>
-          <PostTypeToggle value={duration} onChange={setDuration} />
         </View>
 
         <Pressable onPress={handlePost} style={[styles.button, isPosting && styles.buttonDisabled]} disabled={isPosting}>
