@@ -8,7 +8,7 @@ import {
 
 import { mockUsers } from '../data/mockUsers';
 import { useAuth } from './useAuth';
-import { createPost, getHomeFeedPosts, getPermanentPostsForUser } from '../services/posts';
+import { createPost, getHomeFeedPosts, getPermanentPostsForUser, type PostProgressStage } from '../services/posts';
 import { getAllUsers } from '../services/users';
 import { isUnauthorizedApiError, type UserProfile } from '../services/auth';
 import type { FeedPost, Post, User } from '../types/models';
@@ -21,7 +21,11 @@ type AppDataContextValue = {
   isLoading: boolean;
   loadError: string | null;
   refreshAppData: () => Promise<void>;
-  publishPost: (input: { imageUrl: string; caption: string }) => Promise<void>;
+  publishPost: (input: {
+    imageUrl: string;
+    caption: string;
+    onProgress?: (stage: PostProgressStage) => void;
+  }) => Promise<void>;
 };
 
 const AppDataContext = createContext<AppDataContextValue | undefined>(undefined);
@@ -131,7 +135,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       setIsLoading(true);
       await loadAppData();
     },
-    publishPost: async ({ imageUrl, caption }) => {
+    publishPost: async ({ imageUrl, caption, onProgress }) => {
       if (!currentUser || !auth) {
         return;
       }
@@ -140,11 +144,14 @@ export function AppDataProvider({ children }: PropsWithChildren) {
         userId: currentUser.id,
         imageUrl,
         caption,
-        token: auth.session.token
+        token: auth.session.token,
+        onProgress
       });
 
+      onProgress?.('refreshing');
       setIsLoading(true);
       await loadAppData();
+      onProgress?.('done');
     }
   };
 

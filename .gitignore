@@ -3,6 +3,7 @@ node_modules
 dist
 .turbo
 .env
+.env.save
 coverage
 .expo
 .expo-shared

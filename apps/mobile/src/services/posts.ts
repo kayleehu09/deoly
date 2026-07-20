@@ -39,6 +39,8 @@ type BackendCreateMediaUploadResponse = {
 const DEFAULT_PROFILE_IMAGE_URL = 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=400&q=80';
 const POST_IMAGE_CONTENT_TYPE = 'image/jpeg';
 
+export type PostProgressStage = 'preparing' | 'uploading' | 'creating' | 'refreshing' | 'done';
+
 function toMobileFeedPost(post: BackendFeedPost): FeedPost {
   return {
     id: post.id,
@@ -102,7 +104,8 @@ export async function getPermanentPostsForUser(userId: string, token?: string): 
   return filterPermanentPostsForProfile(mockPostStore, userId);
 }
 
-async function uploadPostImage(imageUri: string, token: string) {
+async function uploadPostImage(imageUri: string, token: string, onProgress?: (stage: PostProgressStage) => void) {
+  onProgress?.('preparing');
   const imageResponse = await fetch(imageUri);
 
   if (!imageResponse.ok) {
@@ -122,6 +125,7 @@ async function uploadPostImage(imageUri: string, token: string) {
     token
   );
 
+  onProgress?.('uploading');
   const uploadResponse = await fetch(upload.uploadUrl, {
     method: 'PUT',
     headers: upload.headers,
@@ -140,9 +144,11 @@ export async function createPost(input: {
   imageUrl: string;
   caption: string;
   token?: string;
+  onProgress?: (stage: PostProgressStage) => void;
 }): Promise<Post> {
   if (input.token) {
-    const imageObjectKey = await uploadPostImage(input.imageUrl, input.token);
+    const imageObjectKey = await uploadPostImage(input.imageUrl, input.token, input.onProgress);
+    input.onProgress?.('creating');
     const response = await apiFetch<BackendCreatePostResponse>(
       '/posts',
       {
@@ -160,6 +166,7 @@ export async function createPost(input: {
     return toMobileFeedPost(response.post);
   }
 
+  input.onProgress?.('preparing');
   const createdAt = new Date();
 
   const newPost: Post = {
