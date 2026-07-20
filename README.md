@@ -1,4 +1,4 @@
-# Sanctuary Social MVP
+# Deoly MVP
 
 This repo now contains multiple app surfaces for the broader product direction:
 
@@ -6,8 +6,6 @@ This repo now contains multiple app surfaces for the broader product direction:
 - `apps/web`: Next.js web client
 - `apps/mobile`: Expo + React Native + TypeScript mobile MVP skeleton for **Deoly**
 - `packages/shared`: shared TypeScript package space for future cross-app contracts
-
-## Deoly mobile MVP
 
 `apps/mobile` is a mock-data-first React Native app for a private, Christian teen-centered devotional experience.
 
