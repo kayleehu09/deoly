@@ -10,19 +10,23 @@ Friends (adding, accepting, removing)
 Block / Report
 Disappearing post
 Permanent posts are deferred until after the MVP; the main posting flow should create 24-hour deolys only.
+
 Safety
 block people, report posts, delete your own posts/account
 blocking needs to affect feed, search, comments, and friend requests
 reports need somewhere to go, even if it is just an admin list
 account deletion needs to remove or hide a user’s data
+
 Design
 make things pretty
+
 Backend
 Make the phone app use real data
 connecting the phone app to real login
 showing the real feed
 making sure users only see friends’ posts
 handling loading/error states so the app does not feel broken
+
 Add photo uploads
 saving photos somewhere, like Firebase Storage or S3
 connecting each uploaded photo to a post
