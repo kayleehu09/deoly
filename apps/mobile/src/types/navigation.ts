@@ -25,6 +25,9 @@ export type RootStackParamList = {
   PostComposer: {
     imageUri: string;
   };
+  PostDetail: {
+    postId: string;
+  };
 };
 
 export type TabParamList = {

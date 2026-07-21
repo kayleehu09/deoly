@@ -13,7 +13,15 @@ import type { RootStackParamList } from '../types/navigation';
 
 export function HomeScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { currentUser, feedPosts, isLoading, loadError, refreshAppData } = useAppData();
+  const {
+    currentUser,
+    feedPosts,
+    isLoading,
+    loadError,
+    refreshAppData,
+    togglePostReaction,
+    commentOnPost
+  } = useAppData();
   const [avatarPost, setAvatarPost] = useState<FeedPost | null>(null);
 
   const handleUserPress = (post: FeedPost) => {
@@ -46,6 +54,9 @@ export function HomeScreen() {
           onRefresh={refreshAppData}
           onUserPress={handleUserPress}
           onAvatarPress={setAvatarPost}
+          onReactionPress={togglePostReaction}
+          onCommentSubmit={(post, body) => commentOnPost(post.id, body)}
+          onOpenComments={(post) => navigation.navigate('PostDetail', { postId: post.id })}
         />
       </View>
       <AvatarPreviewModal

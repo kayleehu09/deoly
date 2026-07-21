@@ -13,6 +13,7 @@ import { DeolyArchiveScreen } from '../screens/DeolyArchiveScreen';
 import { FriendProfileScreen } from '../screens/FriendProfileScreen';
 import { HomeScreen } from '../screens/HomeScreen';
 import { PostComposerScreen } from '../screens/PostComposerScreen';
+import { PostDetailScreen } from '../screens/PostDetailScreen';
 import { PrayerPlaceholderScreen } from '../screens/PrayerPlaceholderScreen';
 import { ProfileFriendsScreen } from '../screens/ProfileFriendsScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
@@ -146,6 +147,18 @@ export function AppNavigator() {
               component={PostComposerScreen}
               options={{
                 title: 'New Post',
+                headerShadowVisible: false,
+                headerStyle: {
+                  backgroundColor: colors.background
+                },
+                headerTintColor: colors.text
+              }}
+            />
+            <RootStack.Screen
+              name="PostDetail"
+              component={PostDetailScreen}
+              options={{
+                title: 'Comments',
                 headerShadowVisible: false,
                 headerStyle: {
                   backgroundColor: colors.background

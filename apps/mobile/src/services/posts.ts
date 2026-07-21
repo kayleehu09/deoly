@@ -1,9 +1,10 @@
 import { mockPosts } from '../data/mockPosts';
 import { apiFetch } from './auth';
-import type { FeedPost, Post, User } from '../types/models';
+import type { FeedPost, Post, PostComment, ReactionEmoji, User } from '../types/models';
 import { filterPermanentPostsForProfile, sortFeedPosts } from '../utils/postUtils';
 
 let mockPostStore = [...mockPosts];
+export const REACTION_EMOJIS: ReactionEmoji[] = ['🙏', '❤️', '🙌', '🔥', '😊', '🤍'];
 
 type BackendFeedPost = {
   id: string;
@@ -13,6 +14,10 @@ type BackendFeedPost = {
   visibility: 'friends' | 'close_circle';
   expiresAt: string | null;
   createdAt: string;
+  reactionCounts: Partial<Record<ReactionEmoji, number>>;
+  viewerReactions: ReactionEmoji[];
+  recentComments: PostComment[];
+  commentCount: number;
   author: {
     id: string;
     displayName: string;
@@ -26,6 +31,10 @@ type BackendFeedResponse = {
 };
 
 type BackendCreatePostResponse = {
+  post: BackendFeedPost;
+};
+
+type BackendGetPostResponse = {
   post: BackendFeedPost;
 };
 
@@ -50,6 +59,10 @@ function toMobileFeedPost(post: BackendFeedPost): FeedPost {
     createdAt: post.createdAt,
     expiresAt: post.expiresAt,
     isPermanent: post.kind === 'permanent',
+    reactionCounts: post.reactionCounts,
+    viewerReactions: post.viewerReactions,
+    recentComments: post.recentComments,
+    commentCount: post.commentCount,
     isCloseFriend: post.visibility === 'close_circle',
     user: {
       id: post.author.id,
@@ -66,6 +79,11 @@ function toMobileFeedPost(post: BackendFeedPost): FeedPost {
 export async function getHomeFeedPosts(token: string): Promise<FeedPost[]> {
   const response = await apiFetch<BackendFeedResponse>('/feed', undefined, token);
   return response.items.map(toMobileFeedPost);
+}
+
+export async function getPostById(postId: string, token: string): Promise<FeedPost> {
+  const response = await apiFetch<BackendGetPostResponse>(`/posts/${postId}`, undefined, token);
+  return toMobileFeedPost(response.post);
 }
 
 export async function getMockHomeFeedPosts(currentUser: User, users: User[]): Promise<FeedPost[]> {
@@ -176,11 +194,47 @@ export async function createPost(input: {
     caption: input.caption.trim(),
     createdAt: createdAt.toISOString(),
     expiresAt: new Date(createdAt.getTime() + 24 * 60 * 60 * 1000).toISOString(),
-    isPermanent: false
+    isPermanent: false,
+    reactionCounts: {},
+    viewerReactions: [],
+    recentComments: [],
+    commentCount: 0
   };
 
   mockPostStore = [newPost, ...mockPostStore];
   return newPost;
+}
+
+export async function addReaction(postId: string, emoji: ReactionEmoji, token: string) {
+  await apiFetch<void>(
+    `/posts/${postId}/reactions`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ emoji })
+    },
+    token
+  );
+}
+
+export async function removeReaction(postId: string, emoji: ReactionEmoji, token: string) {
+  await apiFetch<void>(
+    `/posts/${postId}/reactions/${encodeURIComponent(emoji)}`,
+    {
+      method: 'DELETE'
+    },
+    token
+  );
+}
+
+export async function addComment(postId: string, body: string, token: string) {
+  await apiFetch<void>(
+    `/posts/${postId}/comments`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ body })
+    },
+    token
+  );
 }
 
 // Provider-specific photo storage stays behind the API so the mobile app can

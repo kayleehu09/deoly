@@ -2,6 +2,12 @@ import type { Post } from '../types/models';
 
 const now = Date.now();
 const hour = 60 * 60 * 1000;
+const emptyInteractionState = {
+  reactionCounts: {},
+  viewerReactions: [],
+  recentComments: [],
+  commentCount: 0
+};
 
 export const mockPosts: Post[] = [
   {
@@ -12,7 +18,8 @@ export const mockPosts: Post[] = [
     caption: 'Sunrise walk before school. Needed this reminder that mercies really are new.',
     createdAt: new Date(now - hour * 2).toISOString(),
     expiresAt: new Date(now + hour * 22).toISOString(),
-    isPermanent: false
+    isPermanent: false,
+    ...emptyInteractionState
   },
   {
     id: 'post-2',
@@ -22,7 +29,8 @@ export const mockPosts: Post[] = [
     caption: 'Today’s devo and a quiet gym before practice.',
     createdAt: new Date(now - hour * 5).toISOString(),
     expiresAt: null,
-    isPermanent: true
+    isPermanent: true,
+    ...emptyInteractionState
   },
   {
     id: 'post-3',
@@ -32,7 +40,8 @@ export const mockPosts: Post[] = [
     caption: 'Thankful for a little peace after a loud week.',
     createdAt: new Date(now - hour * 9).toISOString(),
     expiresAt: new Date(now + hour * 15).toISOString(),
-    isPermanent: false
+    isPermanent: false,
+    ...emptyInteractionState
   },
   {
     id: 'post-4',
@@ -42,7 +51,8 @@ export const mockPosts: Post[] = [
     caption: 'Keeping this one. Felt like the kind of day I want to remember later.',
     createdAt: new Date(now - hour * 27).toISOString(),
     expiresAt: null,
-    isPermanent: true
+    isPermanent: true,
+    ...emptyInteractionState
   },
   {
     id: 'post-5',
@@ -52,6 +62,7 @@ export const mockPosts: Post[] = [
     caption: 'Expired mock post should never show up in the feed.',
     createdAt: new Date(now - hour * 30).toISOString(),
     expiresAt: new Date(now - hour * 6).toISOString(),
-    isPermanent: false
+    isPermanent: false,
+    ...emptyInteractionState
   }
 ];

@@ -8,10 +8,18 @@ import {
 
 import { mockUsers } from '../data/mockUsers';
 import { useAuth } from './useAuth';
-import { createPost, getHomeFeedPosts, getPermanentPostsForUser, type PostProgressStage } from '../services/posts';
+import {
+  addComment,
+  addReaction,
+  createPost,
+  getHomeFeedPosts,
+  getPermanentPostsForUser,
+  removeReaction,
+  type PostProgressStage
+} from '../services/posts';
 import { getAllUsers } from '../services/users';
 import { isUnauthorizedApiError, type UserProfile } from '../services/auth';
-import type { FeedPost, Post, User } from '../types/models';
+import type { FeedPost, Post, ReactionEmoji, User } from '../types/models';
 
 type AppDataContextValue = {
   currentUser: User | null;
@@ -26,6 +34,8 @@ type AppDataContextValue = {
     caption: string;
     onProgress?: (stage: PostProgressStage) => void;
   }) => Promise<void>;
+  togglePostReaction: (post: FeedPost, emoji: ReactionEmoji) => Promise<void>;
+  commentOnPost: (postId: string, body: string) => Promise<void>;
 };
 
 const AppDataContext = createContext<AppDataContextValue | undefined>(undefined);
@@ -152,6 +162,27 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       setIsLoading(true);
       await loadAppData();
       onProgress?.('done');
+    },
+    togglePostReaction: async (post, emoji) => {
+      if (!auth) {
+        return;
+      }
+
+      if (post.viewerReactions.includes(emoji)) {
+        await removeReaction(post.id, emoji, auth.session.token);
+      } else {
+        await addReaction(post.id, emoji, auth.session.token);
+      }
+
+      await loadAppData();
+    },
+    commentOnPost: async (postId, body) => {
+      if (!auth) {
+        return;
+      }
+
+      await addComment(postId, body, auth.session.token);
+      await loadAppData();
     }
   };
 

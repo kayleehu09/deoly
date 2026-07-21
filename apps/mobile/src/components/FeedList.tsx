@@ -1,7 +1,7 @@
 import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native';
 
 import { colors, spacing, typography } from '../constants/theme';
-import type { FeedPost } from '../types/models';
+import type { FeedPost, ReactionEmoji } from '../types/models';
 import { PostCard } from './PostCard';
 
 type FeedListProps = {
@@ -11,9 +11,22 @@ type FeedListProps = {
   onRefresh: () => Promise<void>;
   onUserPress?: (post: FeedPost) => void;
   onAvatarPress?: (post: FeedPost) => void;
+  onReactionPress?: (post: FeedPost, emoji: ReactionEmoji) => Promise<void>;
+  onCommentSubmit?: (post: FeedPost, body: string) => Promise<void>;
+  onOpenComments?: (post: FeedPost) => void;
 };
 
-export function FeedList({ posts, isLoading, error, onRefresh, onUserPress, onAvatarPress }: FeedListProps) {
+export function FeedList({
+  posts,
+  isLoading,
+  error,
+  onRefresh,
+  onUserPress,
+  onAvatarPress,
+  onReactionPress,
+  onCommentSubmit,
+  onOpenComments
+}: FeedListProps) {
   if (isLoading && posts.length === 0) {
     return (
       <View style={styles.loader}>
@@ -36,7 +49,16 @@ export function FeedList({ posts, isLoading, error, onRefresh, onUserPress, onAv
       data={posts}
       keyExtractor={(item) => item.id}
       contentContainerStyle={styles.content}
-      renderItem={({ item }) => <PostCard post={item} onUserPress={onUserPress} onAvatarPress={onAvatarPress} />}
+      renderItem={({ item }) => (
+        <PostCard
+          post={item}
+          onUserPress={onUserPress}
+          onAvatarPress={onAvatarPress}
+          onReactionPress={onReactionPress}
+          onCommentSubmit={onCommentSubmit}
+          onOpenComments={onOpenComments}
+        />
+      )}
       showsVerticalScrollIndicator={false}
       refreshControl={<RefreshControl refreshing={isLoading} onRefresh={onRefresh} tintColor={colors.accent} />}
       ListEmptyComponent={

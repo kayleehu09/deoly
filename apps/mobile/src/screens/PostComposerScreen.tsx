@@ -26,12 +26,13 @@ type Props = NativeStackScreenProps<RootStackParamList, 'PostComposer'>;
 const POST_PROGRESS_LABELS: Record<PostProgressStage, string> = {
   preparing: 'Preparing photo...',
   uploading: 'Uploading photo...',
-  creating: 'Creating post...',
+  creating: 'Creating deoly...',
   refreshing: 'Refreshing feed...',
-  done: 'Post ready.'
+  done: 'Deoly ready.'
 };
 
 const KEYBOARD_DISMISS_SCROLL_UP_THRESHOLD = 24;
+const POST_ERROR_MESSAGE = "Couldn't post right now. Check your internet connection and try again.";
 
 export function PostComposerScreen({ navigation, route }: Props) {
   const { publishPost } = useAppData();
@@ -56,7 +57,9 @@ export function PostComposerScreen({ navigation, route }: Props) {
         screen: 'HomeTab'
       });
     } catch (err) {
-      setPostError(err instanceof Error ? err.message : 'Posting failed. Please try again.');
+      console.warn('Post failed', err);
+      setProgressStage(null);
+      setPostError(POST_ERROR_MESSAGE);
     } finally {
       setIsPosting(false);
     }
@@ -98,7 +101,7 @@ export function PostComposerScreen({ navigation, route }: Props) {
             <TextInput
               value={caption}
               onChangeText={setCaption}
-              placeholder="Optional short caption"
+              placeholder="verses, conversation pts, takeaways, & more..."
               placeholderTextColor={colors.textMuted}
               multiline
               maxLength={140}
