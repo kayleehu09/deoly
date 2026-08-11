@@ -3,21 +3,26 @@ import { ActivityIndicator, SafeAreaView, ScrollView, StyleSheet, Text, View } f
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { PostCard } from '../components/PostCard';
+import { ReactionViewerSheet } from '../components/ReactionViewerSheet';
 import { colors, spacing, typography } from '../constants/theme';
 import { useAppData } from '../hooks/useAppData';
 import { useAuth } from '../hooks/useAuth';
 import { getPostById } from '../services/posts';
-import type { FeedPost } from '../types/models';
+import type { FeedPost, PostReactionGroup, ReactionEmoji } from '../types/models';
 import type { RootStackParamList } from '../types/navigation';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'PostDetail'>;
 
 export function PostDetailScreen({ route }: Props) {
   const { auth } = useAuth();
-  const { togglePostReaction, commentOnPost } = useAppData();
+  const { togglePostReaction, loadPostReactions, commentOnPost } = useAppData();
   const [post, setPost] = useState<FeedPost | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [reactionGroups, setReactionGroups] = useState<PostReactionGroup[]>([]);
+  const [isLoadingReactions, setIsLoadingReactions] = useState(false);
+  const [reactionError, setReactionError] = useState<string | null>(null);
+  const [isReactionSheetVisible, setIsReactionSheetVisible] = useState(false);
 
   const loadPost = async () => {
     if (!auth) {
@@ -48,6 +53,21 @@ export function PostDetailScreen({ route }: Props) {
     await loadPost();
   };
 
+  const handleReactionDetailsPress = async (selectedPost: FeedPost, emoji: ReactionEmoji) => {
+    setIsReactionSheetVisible(true);
+    setReactionGroups([]);
+    setReactionError(null);
+    setIsLoadingReactions(true);
+
+    try {
+      setReactionGroups(await loadPostReactions(selectedPost.id, emoji));
+    } catch (err) {
+      setReactionError(err instanceof Error ? err.message : 'Could not load reactions.');
+    } finally {
+      setIsLoadingReactions(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <SafeAreaView style={styles.safeArea}>
@@ -76,9 +96,17 @@ export function PostDetailScreen({ route }: Props) {
           post={post}
           showAllComments
           onReactionPress={handleReactionPress}
+          onReactionDetailsPress={handleReactionDetailsPress}
           onCommentSubmit={handleCommentSubmit}
         />
       </ScrollView>
+      <ReactionViewerSheet
+        visible={isReactionSheetVisible}
+        groups={reactionGroups}
+        isLoading={isLoadingReactions}
+        error={reactionError}
+        onClose={() => setIsReactionSheetVisible(false)}
+      />
     </SafeAreaView>
   );
 }

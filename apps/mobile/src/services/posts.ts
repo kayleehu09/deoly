@@ -1,10 +1,10 @@
 import { mockPosts } from '../data/mockPosts';
 import { apiFetch } from './auth';
-import type { FeedPost, Post, PostComment, ReactionEmoji, User } from '../types/models';
+import type { FeedPost, Post, PostComment, PostReactionGroup, ReactionEmoji, User } from '../types/models';
 import { filterPermanentPostsForProfile, sortFeedPosts } from '../utils/postUtils';
 
 let mockPostStore = [...mockPosts];
-export const REACTION_EMOJIS: ReactionEmoji[] = ['🙏', '❤️', '🙌', '🔥', '😊', '🤍'];
+export const REACTION_EMOJIS: ReactionEmoji[] = ['🙏', '❤️', '🙌', '🔥'];
 
 type BackendFeedPost = {
   id: string;
@@ -36,6 +36,10 @@ type BackendCreatePostResponse = {
 
 type BackendGetPostResponse = {
   post: BackendFeedPost;
+};
+
+type BackendPostReactionsResponse = {
+  groups: PostReactionGroup[];
 };
 
 type BackendCreateMediaUploadResponse = {
@@ -84,6 +88,15 @@ export async function getHomeFeedPosts(token: string): Promise<FeedPost[]> {
 export async function getPostById(postId: string, token: string): Promise<FeedPost> {
   const response = await apiFetch<BackendGetPostResponse>(`/posts/${postId}`, undefined, token);
   return toMobileFeedPost(response.post);
+}
+
+export async function getPostReactions(postId: string, emoji: ReactionEmoji, token: string): Promise<PostReactionGroup[]> {
+  const response = await apiFetch<BackendPostReactionsResponse>(
+    `/posts/${postId}/reactions?emoji=${encodeURIComponent(emoji)}`,
+    undefined,
+    token
+  );
+  return response.groups;
 }
 
 export async function getMockHomeFeedPosts(currentUser: User, users: User[]): Promise<FeedPost[]> {

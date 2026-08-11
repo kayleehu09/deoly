@@ -2,7 +2,7 @@ export const POST_MAX_LENGTH = 280;
 export const COMMENT_MAX_LENGTH = 200;
 export const DISPLAY_NAME_MAX_LENGTH = 40;
 export const USERNAME_MAX_LENGTH = 24;
-export const ALLOWED_REACTION_EMOJIS = ["🙏", "❤️", "🙌", "🔥", "😊", "🤍"] as const;
+export const ALLOWED_REACTION_EMOJIS = ["🙏", "❤️", "🙌", "🔥"] as const;
 export const POST_VISIBILITIES = ["friends", "close_circle"] as const;
 export const POST_KINDS = ["deoly", "permanent"] as const;
 
@@ -68,6 +68,22 @@ export interface FeedPost {
   viewerReactions: AllowedReactionEmoji[];
   recentComments: FeedComment[];
   commentCount: number;
+}
+
+export interface ReactionViewer {
+  id: string;
+  displayName: string;
+  username: string;
+  avatarUrl: string | null;
+}
+
+export interface PostReactionGroup {
+  emoji: AllowedReactionEmoji;
+  users: ReactionViewer[];
+}
+
+export interface PostReactionsResponse {
+  groups: PostReactionGroup[];
 }
 
 export interface FeedResponse {

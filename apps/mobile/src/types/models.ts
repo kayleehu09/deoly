@@ -27,7 +27,7 @@ export interface FeedPost extends Post {
   isCloseFriend: boolean;
 }
 
-export type ReactionEmoji = '🙏' | '❤️' | '🙌' | '🔥' | '😊' | '🤍';
+export type ReactionEmoji = '🙏' | '❤️' | '🙌' | '🔥';
 
 export interface PostComment {
   id: string;
@@ -39,4 +39,16 @@ export interface PostComment {
     username: string;
     avatarUrl: string | null;
   };
+}
+
+export interface ReactionViewer {
+  id: string;
+  displayName: string;
+  username: string;
+  avatarUrl: string | null;
+}
+
+export interface PostReactionGroup {
+  emoji: ReactionEmoji;
+  users: ReactionViewer[];
 }

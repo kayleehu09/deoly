@@ -1,6 +1,14 @@
 import { Router } from "express";
 import { z } from "zod";
-import { ALLOWED_REACTION_EMOJIS, COMMENT_MAX_LENGTH, POST_KINDS, POST_MAX_LENGTH, POST_VISIBILITIES } from "@sanctuary/shared";
+import {
+  ALLOWED_REACTION_EMOJIS,
+  COMMENT_MAX_LENGTH,
+  POST_KINDS,
+  POST_MAX_LENGTH,
+  POST_VISIBILITIES,
+  type AllowedReactionEmoji,
+  type PostReactionGroup
+} from "@sanctuary/shared";
 import { ApiError } from "../lib/errors.js";
 import { canInteractWithPost, canViewPost, canViewPostRecord } from "../lib/friendships.js";
 import { prisma } from "../lib/prisma.js";
@@ -23,6 +31,10 @@ const createCommentSchema = z.object({
 
 const createReactionSchema = z.object({
   emoji: z.enum(ALLOWED_REACTION_EMOJIS)
+});
+
+const getReactionsQuerySchema = z.object({
+  emoji: z.enum(ALLOWED_REACTION_EMOJIS).optional()
 });
 
 export const postsRouter = Router();
@@ -248,6 +260,67 @@ postsRouter.get("/:id", requireAuth, async (req, res, next) => {
 
     res.json({
       post: await toFeedPost(post as FeedPostRecord, viewerId)
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+postsRouter.get("/:id/reactions", requireAuth, async (req, res, next) => {
+  try {
+    const query = getReactionsQuerySchema.parse(req.query);
+    const postId = String(req.params.id);
+    const viewerId = req.auth!.user.id;
+    const post = await prisma.post.findUnique({
+      where: {
+        id: postId
+      },
+      include: {
+        reactions: {
+          orderBy: {
+            createdAt: "asc"
+          },
+          include: {
+            user: {
+              select: {
+                id: true,
+                displayName: true,
+                username: true,
+                avatarUrl: true
+              }
+            }
+          }
+        }
+      }
+    });
+
+    if (!post) {
+      throw new ApiError(404, "POST_NOT_FOUND", "Post not found.");
+    }
+
+    if (!(await canViewPostRecord(viewerId, post))) {
+      throw new ApiError(403, "POST_FORBIDDEN", "You do not have access to this post.");
+    }
+
+    const groupsByEmoji = new Map<AllowedReactionEmoji, PostReactionGroup>();
+
+    const visibleEmojis = query.emoji ? [query.emoji] : ALLOWED_REACTION_EMOJIS;
+
+    for (const emoji of visibleEmojis) {
+      groupsByEmoji.set(emoji, {
+        emoji,
+        users: []
+      });
+    }
+
+    for (const reaction of post.reactions) {
+      if (visibleEmojis.includes(reaction.emoji as AllowedReactionEmoji)) {
+        groupsByEmoji.get(reaction.emoji as AllowedReactionEmoji)?.users.push(reaction.user);
+      }
+    }
+
+    res.json({
+      groups: [...groupsByEmoji.values()].filter((group) => group.users.length > 0)
     });
   } catch (error) {
     next(error);

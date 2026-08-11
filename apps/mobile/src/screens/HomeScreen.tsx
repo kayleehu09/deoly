@@ -6,9 +6,10 @@ import { SafeAreaView, StyleSheet, Text, View } from 'react-native';
 import { AvatarPreviewModal } from '../components/AvatarPreviewModal';
 import { FeedList } from '../components/FeedList';
 import { HeartPeopleButton } from '../components/HeartPeopleButton';
+import { ReactionViewerSheet } from '../components/ReactionViewerSheet';
 import { colors, spacing, typography } from '../constants/theme';
 import { useAppData } from '../hooks/useAppData';
-import type { FeedPost } from '../types/models';
+import type { FeedPost, PostReactionGroup, ReactionEmoji } from '../types/models';
 import type { RootStackParamList } from '../types/navigation';
 
 export function HomeScreen() {
@@ -20,9 +21,14 @@ export function HomeScreen() {
     loadError,
     refreshAppData,
     togglePostReaction,
+    loadPostReactions,
     commentOnPost
   } = useAppData();
   const [avatarPost, setAvatarPost] = useState<FeedPost | null>(null);
+  const [reactionPost, setReactionPost] = useState<FeedPost | null>(null);
+  const [reactionGroups, setReactionGroups] = useState<PostReactionGroup[]>([]);
+  const [isLoadingReactions, setIsLoadingReactions] = useState(false);
+  const [reactionError, setReactionError] = useState<string | null>(null);
 
   const handleUserPress = (post: FeedPost) => {
     if (post.userId === currentUser?.id) {
@@ -31,6 +37,21 @@ export function HomeScreen() {
     }
 
     navigation.navigate('FriendProfile', { userId: post.userId });
+  };
+
+  const handleReactionDetailsPress = async (post: FeedPost, emoji: ReactionEmoji) => {
+    setReactionPost(post);
+    setReactionGroups([]);
+    setReactionError(null);
+    setIsLoadingReactions(true);
+
+    try {
+      setReactionGroups(await loadPostReactions(post.id, emoji));
+    } catch (err) {
+      setReactionError(err instanceof Error ? err.message : 'Could not load reactions.');
+    } finally {
+      setIsLoadingReactions(false);
+    }
   };
 
   return (
@@ -55,6 +76,7 @@ export function HomeScreen() {
           onUserPress={handleUserPress}
           onAvatarPress={setAvatarPost}
           onReactionPress={togglePostReaction}
+          onReactionDetailsPress={handleReactionDetailsPress}
           onCommentSubmit={(post, body) => commentOnPost(post.id, body)}
           onOpenComments={(post) => navigation.navigate('PostDetail', { postId: post.id })}
         />
@@ -65,6 +87,13 @@ export function HomeScreen() {
         username={avatarPost?.user.username ?? ''}
         visible={Boolean(avatarPost)}
         onClose={() => setAvatarPost(null)}
+      />
+      <ReactionViewerSheet
+        visible={Boolean(reactionPost)}
+        groups={reactionGroups}
+        isLoading={isLoadingReactions}
+        error={reactionError}
+        onClose={() => setReactionPost(null)}
       />
     </SafeAreaView>
   );

@@ -135,7 +135,7 @@ async function main() {
     data: {
       postId: avaActiveDeoly.id,
       userId: noah.id,
-      emoji: "🤍"
+      emoji: "❤️"
     }
   });
 }

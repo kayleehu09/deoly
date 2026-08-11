@@ -14,12 +14,13 @@ import {
   createPost,
   getHomeFeedPosts,
   getPermanentPostsForUser,
+  getPostReactions,
   removeReaction,
   type PostProgressStage
 } from '../services/posts';
 import { getAllUsers } from '../services/users';
 import { isUnauthorizedApiError, type UserProfile } from '../services/auth';
-import type { FeedPost, Post, ReactionEmoji, User } from '../types/models';
+import type { FeedPost, Post, PostReactionGroup, ReactionEmoji, User } from '../types/models';
 
 type AppDataContextValue = {
   currentUser: User | null;
@@ -35,6 +36,7 @@ type AppDataContextValue = {
     onProgress?: (stage: PostProgressStage) => void;
   }) => Promise<void>;
   togglePostReaction: (post: FeedPost, emoji: ReactionEmoji) => Promise<void>;
+  loadPostReactions: (postId: string, emoji: ReactionEmoji) => Promise<PostReactionGroup[]>;
   commentOnPost: (postId: string, body: string) => Promise<void>;
 };
 
@@ -175,6 +177,13 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       }
 
       await loadAppData();
+    },
+    loadPostReactions: async (postId, emoji) => {
+      if (!auth) {
+        return [];
+      }
+
+      return getPostReactions(postId, emoji, auth.session.token);
     },
     commentOnPost: async (postId, body) => {
       if (!auth) {

@@ -89,6 +89,7 @@ function MainTabs() {
           borderTopColor: colors.border
         },
         tabBarShowLabel: false,
+        tabBarHideOnKeyboard: true,
         tabBarItemStyle: {
           flex: 1,
           height: 56,

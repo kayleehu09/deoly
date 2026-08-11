@@ -128,7 +128,20 @@ vi.mock("../lib/prisma.js", () => {
       createdAt: new Date(now.getTime() - hour),
       updatedAt: new Date(now.getTime() - hour),
       author: { id: "user_ava", displayName: "Ava Grace", username: "avafaith", avatarUrl: null },
-      reactions: [],
+      reactions: [
+        {
+          emoji: "❤️",
+          userId: "ckvvy6f5e000001l6b9fh9a3x",
+          createdAt: new Date(now.getTime() - 30 * 60 * 1000),
+          user: { id: "ckvvy6f5e000001l6b9fh9a3x", displayName: "Noah James", username: "noahlight", avatarUrl: null }
+        },
+        {
+          emoji: "🙏",
+          userId: "user_ava",
+          createdAt: new Date(now.getTime() - 20 * 60 * 1000),
+          user: { id: "user_ava", displayName: "Ava Grace", username: "avafaith", avatarUrl: null }
+        }
+      ],
       comments: []
     },
     {
@@ -573,6 +586,66 @@ describe("Sanctuary API", () => {
     expect(response.status).toBe(200);
     expect(response.body.post.id).toBe("post_self_expired");
     expect(response.body.post.kind).toBe("deoly");
+  });
+
+  it("lets post owners see who reacted to their post", async () => {
+    const response = await request(app).get("/posts/post_self_new/reactions").set("authorization", `Bearer ${token}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body.groups).toEqual([
+      {
+        emoji: "🙏",
+        users: [
+          {
+            id: "user_ava",
+            displayName: "Ava Grace",
+            username: "avafaith",
+            avatarUrl: null
+          }
+        ]
+      },
+      {
+        emoji: "❤️",
+        users: [
+          {
+            id: "ckvvy6f5e000001l6b9fh9a3x",
+            displayName: "Noah James",
+            username: "noahlight",
+            avatarUrl: null
+          }
+        ]
+      }
+    ]);
+  });
+
+  it("lets visible friends see who reacted with a specific emoji", async () => {
+    const response = await request(app)
+      .get(`/posts/post_self_new/reactions?emoji=${encodeURIComponent("❤️")}`)
+      .set("authorization", `Bearer ${noahToken}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body.groups).toEqual([
+      {
+        emoji: "❤️",
+        users: [
+          {
+            id: "ckvvy6f5e000001l6b9fh9a3x",
+            displayName: "Noah James",
+            username: "noahlight",
+            avatarUrl: null
+          }
+        ]
+      }
+    ]);
+  });
+
+  it("prevents non-friends from seeing who reacted to a post", async () => {
+    const response = await request(app)
+      .get(`/posts/post_self_new/reactions?emoji=${encodeURIComponent("❤️")}`)
+      .set("authorization", `Bearer ${miaToken}`);
+
+    expect(response.status).toBe(403);
+    expect(response.body.error.code).toBe("POST_FORBIDDEN");
   });
 
   it("hides expired deolys from friends", async () => {

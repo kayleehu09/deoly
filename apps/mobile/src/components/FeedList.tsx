@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native';
 
 import { colors, spacing, typography } from '../constants/theme';
@@ -12,6 +13,7 @@ type FeedListProps = {
   onUserPress?: (post: FeedPost) => void;
   onAvatarPress?: (post: FeedPost) => void;
   onReactionPress?: (post: FeedPost, emoji: ReactionEmoji) => Promise<void>;
+  onReactionDetailsPress?: (post: FeedPost, emoji: ReactionEmoji) => void;
   onCommentSubmit?: (post: FeedPost, body: string) => Promise<void>;
   onOpenComments?: (post: FeedPost) => void;
 };
@@ -24,9 +26,12 @@ export function FeedList({
   onUserPress,
   onAvatarPress,
   onReactionPress,
+  onReactionDetailsPress,
   onCommentSubmit,
   onOpenComments
 }: FeedListProps) {
+  const [feedHeight, setFeedHeight] = useState(0);
+
   if (isLoading && posts.length === 0) {
     return (
       <View style={styles.loader}>
@@ -47,19 +52,29 @@ export function FeedList({
   return (
     <FlatList
       data={posts}
+      onLayout={(event) => setFeedHeight(event.nativeEvent.layout.height)}
       keyExtractor={(item) => item.id}
       contentContainerStyle={styles.content}
       renderItem={({ item }) => (
         <PostCard
           post={item}
+          cardHeight={feedHeight || undefined}
           onUserPress={onUserPress}
           onAvatarPress={onAvatarPress}
           onReactionPress={onReactionPress}
+          onReactionDetailsPress={onReactionDetailsPress}
           onCommentSubmit={onCommentSubmit}
           onOpenComments={onOpenComments}
         />
       )}
       showsVerticalScrollIndicator={false}
+      pagingEnabled
+      bounces
+      alwaysBounceVertical
+      decelerationRate="fast"
+      snapToInterval={feedHeight || undefined}
+      snapToAlignment="start"
+      disableIntervalMomentum
       refreshControl={<RefreshControl refreshing={isLoading} onRefresh={onRefresh} tintColor={colors.accent} />}
       ListEmptyComponent={
         <View style={styles.emptyState}>
@@ -80,7 +95,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center'
   },
   content: {
-    paddingBottom: spacing.xl,
     backgroundColor: colors.background
   },
   emptyState: {
