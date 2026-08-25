@@ -1,7 +1,19 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useRef, useState } from 'react';
-import { Image, Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  Image,
+  Keyboard,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View
+} from 'react-native';
 
 import { colors, radii, spacing, typography } from '../constants/theme';
 import { REACTION_EMOJIS } from '../services/posts';
@@ -38,6 +50,9 @@ const MATERIAL_REACTION_ICON_BY_EMOJI: Partial<Record<ReactionEmoji, MaterialCom
   '🙌': 'human-handsup'
 };
 
+const COLLAPSED_CAPTION_LINES = 2;
+const EXPANDED_CAPTION_MAX_HEIGHT = 132;
+
 export function PostCard({
   post,
   cardHeight,
@@ -54,10 +69,12 @@ export function PostCard({
   const [interactionError, setInteractionError] = useState<string | null>(null);
   const [isReactionRailExpanded, setIsReactionRailExpanded] = useState(false);
   const [isComposerDocked, setIsComposerDocked] = useState(false);
+  const [isCaptionExpanded, setIsCaptionExpanded] = useState(false);
   const dockedInputRef = useRef<TextInput>(null);
-  const visibleComments = showAllComments ? post.recentComments : post.recentComments.slice(0, 2);
-  const hiddenCommentCount = Math.max(post.commentCount - visibleComments.length, 0);
+  const visibleComments = showAllComments ? post.recentComments : [];
   const totalReactionCount = Object.values(post.reactionCounts).reduce((total, count) => total + (count ?? 0), 0);
+  const shouldShowCaptionMore = post.caption.length > 96;
+  const commentThreadLabel = post.commentCount > 0 ? `View all ${post.commentCount} comments` : 'Be the first to comment';
 
   const renderReactionIcon = (emoji: ReactionEmoji, isActive: boolean) => {
     const materialIconName = MATERIAL_REACTION_ICON_BY_EMOJI[emoji];
@@ -255,9 +272,32 @@ export function PostCard({
               </View>
 
               {post.caption && post.imageUrl ? (
-                <Text style={styles.caption}>
-                  <Text style={styles.captionUsername}>@{post.user.username}</Text> {post.caption}
-                </Text>
+                <View style={styles.captionBlock}>
+                  {isCaptionExpanded ? (
+                    <ScrollView
+                      nestedScrollEnabled
+                      showsVerticalScrollIndicator={false}
+                      style={styles.expandedCaptionScroll}
+                    >
+                      <Text style={styles.caption}>
+                        <Text style={styles.captionUsername}>@{post.user.username}</Text> {post.caption}
+                      </Text>
+                    </ScrollView>
+                  ) : (
+                    <Text numberOfLines={COLLAPSED_CAPTION_LINES} style={styles.caption}>
+                      <Text style={styles.captionUsername}>@{post.user.username}</Text> {post.caption}
+                    </Text>
+                  )}
+                  {shouldShowCaptionMore ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={() => setIsCaptionExpanded((isExpanded) => !isExpanded)}
+                      style={styles.captionToggle}
+                    >
+                      <Text style={styles.captionToggleText}>{isCaptionExpanded ? 'less' : 'more'}</Text>
+                    </Pressable>
+                  ) : null}
+                </View>
               ) : null}
 
               {visibleComments.length > 0 ? (
@@ -273,11 +313,9 @@ export function PostCard({
                 </View>
               ) : null}
 
-              {post.commentCount > 0 && onOpenComments ? (
+              {!showAllComments && onOpenComments ? (
                 <Pressable accessibilityRole="button" onPress={() => onOpenComments(post)}>
-                  <Text style={styles.viewThreadText}>
-                    {hiddenCommentCount > 0 ? `View all ${post.commentCount} comments` : 'Open comments'}
-                  </Text>
+                  <Text style={styles.viewThreadText}>{commentThreadLabel}</Text>
                 </Pressable>
               ) : null}
 
@@ -491,6 +529,13 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     lineHeight: 28
   },
+  captionBlock: {
+    gap: 2,
+    maxWidth: '92%'
+  },
+  expandedCaptionScroll: {
+    maxHeight: EXPANDED_CAPTION_MAX_HEIGHT
+  },
   caption: {
     color: colors.surface,
     fontFamily: typography.bodyFamily,
@@ -502,6 +547,20 @@ const styles = StyleSheet.create({
   },
   captionUsername: {
     fontWeight: '700'
+  },
+  captionToggle: {
+    alignSelf: 'flex-start',
+    minHeight: 22,
+    justifyContent: 'center'
+  },
+  captionToggleText: {
+    color: 'rgba(255, 255, 255, 0.72)',
+    fontFamily: typography.bodyFamily,
+    fontSize: 13,
+    fontWeight: '700',
+    textShadowColor: 'rgba(0, 0, 0, 0.42)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 8
   },
   reactionRail: {
     position: 'relative',
