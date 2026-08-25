@@ -17,12 +17,17 @@ import { colors, radii, spacing, typography } from '../constants/theme';
 import { useAppData } from '../hooks/useAppData';
 import { useAuth } from '../hooks/useAuth';
 import {
+  getActivityNotifications,
+  type ActivityNotification
+} from '../services/activity';
+import {
   acceptFriendRequest,
   declineFriendRequest,
   getFriends,
   type FriendListItem
 } from '../services/friends';
 import type { RootStackParamList } from '../types/navigation';
+import { formatRelativeTime } from '../utils/date';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Activity'>;
 
@@ -57,15 +62,17 @@ export function ActivityScreen({ navigation }: Props) {
   const { refreshAppData } = useAppData();
   const token = auth?.session.token;
   const [friends, setFriends] = useState<FriendListItem[]>([]);
+  const [notifications, setNotifications] = useState<ActivityNotification[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [busyActionId, setBusyActionId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const incomingRequests = friends.filter((item) => item.direction === 'incoming' && item.status === 'pending');
 
-  const refreshFriends = useCallback(async () => {
+  const refreshActivity = useCallback(async () => {
     if (!token) {
       setFriends([]);
+      setNotifications([]);
       setIsLoading(false);
       return;
     }
@@ -74,12 +81,13 @@ export function ActivityScreen({ navigation }: Props) {
     setError(null);
 
     try {
-      const response = await withTimeout(
-        getFriends(token),
+      const [friendsResponse, notificationsResponse] = await withTimeout(
+        Promise.all([getFriends(token), getActivityNotifications(token)]),
         FRIENDS_TIMEOUT_MS,
         'Activity is taking too long to load.'
       );
-      setFriends(response.friends);
+      setFriends(friendsResponse.friends);
+      setNotifications(notificationsResponse.items);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not load activity.');
     } finally {
@@ -88,8 +96,8 @@ export function ActivityScreen({ navigation }: Props) {
   }, [token]);
 
   useEffect(() => {
-    void refreshFriends();
-  }, [refreshFriends]);
+    void refreshActivity();
+  }, [refreshActivity]);
 
   async function runRequestAction(actionId: string, action: () => Promise<void>, refreshFeed = false) {
     if (!token || busyActionId) {
@@ -107,7 +115,7 @@ export function ActivityScreen({ navigation }: Props) {
         FRIENDS_TIMEOUT_MS,
         'Friend status is taking too long to update. Make sure the API is running, then try again.'
       );
-      await refreshFriends();
+      await refreshActivity();
       if (refreshFeed) {
         await refreshAppData();
       }
@@ -151,10 +159,40 @@ export function ActivityScreen({ navigation }: Props) {
 
       <ScrollView
         contentContainerStyle={styles.content}
-        refreshControl={<RefreshControl refreshing={isLoading} onRefresh={refreshFriends} tintColor={colors.accent} />}
+        refreshControl={<RefreshControl refreshing={isLoading} onRefresh={refreshActivity} tintColor={colors.accent} />}
         showsVerticalScrollIndicator={false}
       >
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Updates</Text>
+          {isLoading && notifications.length === 0 ? (
+            <View style={styles.loadingRow}>
+              <ActivityIndicator color={colors.accent} />
+            </View>
+          ) : null}
+          {!isLoading && notifications.length === 0 ? <Text style={styles.emptyText}>No updates yet</Text> : null}
+          {notifications.map((item) => (
+            <Pressable
+              accessibilityRole={item.postId ? 'button' : undefined}
+              disabled={!item.postId}
+              key={item.id}
+              onPress={() => {
+                if (item.postId) {
+                  navigation.navigate('PostDetail', { postId: item.postId });
+                }
+              }}
+              style={({ pressed }) => [styles.notificationRow, pressed ? styles.pressed : null]}
+            >
+              <Image source={{ uri: item.actor.avatarUrl ?? DEFAULT_AVATAR_URL }} style={styles.avatar} />
+              <View style={styles.notificationText}>
+                <Text style={styles.notificationMessage}>{item.message}</Text>
+                <Text style={styles.notificationMeta}>@{item.actor.username} - {formatRelativeTime(item.createdAt)}</Text>
+              </View>
+              {item.postId ? <Ionicons name="chevron-forward" size={18} color={colors.textMuted} /> : null}
+            </Pressable>
+          ))}
+        </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Friend requests</Text>
@@ -263,6 +301,34 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     gap: spacing.md,
     padding: spacing.md
+  },
+  notificationRow: {
+    minHeight: 72,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    padding: spacing.md
+  },
+  notificationText: {
+    flex: 1,
+    gap: 4
+  },
+  notificationMessage: {
+    color: colors.text,
+    fontFamily: typography.bodyFamily,
+    fontSize: 15,
+    fontWeight: '700',
+    lineHeight: 20
+  },
+  notificationMeta: {
+    color: colors.textMuted,
+    fontFamily: typography.bodyFamily,
+    fontSize: 12,
+    lineHeight: 17
   },
   identity: {
     minHeight: 48,

@@ -28,6 +28,12 @@ vi.mock("../lib/storage.js", () => ({
 vi.mock("../lib/prisma.js", () => {
   const now = new Date();
   const hour = 60 * 60 * 1000;
+  type MockReaction = {
+    emoji: string;
+    userId: string;
+    createdAt?: Date;
+    user?: { id: string; displayName: string; username: string; avatarUrl: string | null };
+  };
   const users = [
     {
       id: "user_ava",
@@ -201,6 +207,16 @@ vi.mock("../lib/prisma.js", () => {
       comments: []
     }
   ];
+  const activityNotifications: Array<{
+    id: string;
+    recipientId: string;
+    actorId: string;
+    type: "FRIEND_REQUEST_ACCEPTED" | "POST_REACTION" | "POST_COMMENT";
+    postId: string | null;
+    emoji: string | null;
+    createdAt: Date;
+    actor?: { id: string; displayName: string; username: string; avatarUrl: string | null };
+  }> = [];
 
   return {
     prisma: {
@@ -361,7 +377,28 @@ vi.mock("../lib/prisma.js", () => {
         findUnique: vi.fn(async ({ where }) => posts.find((post) => post.id === where.id) ?? null)
       },
       reaction: {
-        upsert: vi.fn(async () => ({})),
+        findUnique: vi.fn(async ({ where }) => {
+          const input = where.postId_userId_emoji;
+          const post = posts.find((item) => item.id === input.postId);
+          return (
+            post?.reactions.find(
+              (reaction) => reaction.userId === input.userId && reaction.emoji === input.emoji
+            ) ?? null
+          );
+        }),
+        upsert: vi.fn(async ({ where, create }) => {
+          const input = where.postId_userId_emoji;
+          const post = posts.find((item) => item.id === input.postId);
+          const existing = post?.reactions.find(
+            (reaction) => reaction.userId === input.userId && reaction.emoji === input.emoji
+          );
+
+          if (!existing) {
+            (post?.reactions as MockReaction[] | undefined)?.push(create);
+          }
+
+          return existing ?? create;
+        }),
         deleteMany: vi.fn(async () => ({ count: 1 }))
       },
       comment: {
@@ -370,8 +407,46 @@ vi.mock("../lib/prisma.js", () => {
           createdAt: now,
           updatedAt: now,
           author: { id: "user_ava", displayName: "Ava Grace", username: "avafaith", avatarUrl: null },
-          ...data
+            ...data
         }))
+      },
+      activityNotification: {
+        create: vi.fn(async ({ data }) => {
+          const actor = users.find((user) => user.id === data.actorId);
+          const notification = {
+            id: `activity_${activityNotifications.length + 1}`,
+            createdAt: now,
+            postId: data.postId ?? null,
+            emoji: data.emoji ?? null,
+            ...data,
+            actor: actor
+              ? { id: actor.id, displayName: actor.displayName, username: actor.username, avatarUrl: actor.avatarUrl }
+              : undefined
+          };
+          activityNotifications.push(notification);
+          return notification;
+        }),
+        findMany: vi.fn(async ({ where, orderBy, take } = {}) => {
+          const filteredNotifications = activityNotifications
+            .filter((notification) => !where?.recipientId || notification.recipientId === where.recipientId)
+            .map((notification) => ({
+              ...notification,
+              actor:
+                notification.actor ??
+                users.find((user) => user.id === notification.actorId) ?? {
+                  id: notification.actorId,
+                  displayName: "Unknown",
+                  username: "unknown",
+                  avatarUrl: null
+                }
+            }));
+
+          if (orderBy?.createdAt === "desc") {
+            filteredNotifications.sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime());
+          }
+
+          return filteredNotifications.slice(0, take ?? filteredNotifications.length);
+        })
       }
     }
   };
@@ -382,6 +457,7 @@ describe("Sanctuary API", () => {
   let token = "";
   let noahToken = "";
   let miaToken = "";
+  let leahToken = "";
 
   beforeAll(async () => {
     const login = await request(app).post("/auth/login").send({
@@ -396,9 +472,14 @@ describe("Sanctuary API", () => {
       email: "mia@example.com",
       password: "password123"
     });
+    const leahLogin = await request(app).post("/auth/login").send({
+      email: "leah@example.com",
+      password: "password123"
+    });
     token = login.body.session.token;
     noahToken = noahLogin.body.session.token;
     miaToken = miaLogin.body.session.token;
+    leahToken = leahLogin.body.session.token;
   });
 
   it("logs in successfully", async () => {
@@ -704,6 +785,52 @@ describe("Sanctuary API", () => {
     expect(response.status).toBe(403);
   });
 
+  it("notifies post owners when someone reacts to their post", async () => {
+    const reaction = await request(app)
+      .post("/posts/post_self_new/reactions")
+      .set("authorization", `Bearer ${noahToken}`)
+      .send({ emoji: "🙌" });
+    const duplicateReaction = await request(app)
+      .post("/posts/post_self_new/reactions")
+      .set("authorization", `Bearer ${noahToken}`)
+      .send({ emoji: "🙌" });
+    const activity = await request(app).get("/activity").set("authorization", `Bearer ${token}`);
+    const reactionNotifications = activity.body.items.filter(
+      (item: { type: string; emoji: string | null; postId: string | null }) =>
+        item.type === "post_reaction" && item.emoji === "🙌" && item.postId === "post_self_new"
+    );
+
+    expect(reaction.status).toBe(204);
+    expect(duplicateReaction.status).toBe(204);
+    expect(reactionNotifications).toHaveLength(1);
+    expect(reactionNotifications[0]).toEqual(
+      expect.objectContaining({
+        message: "Noah James reacted 🙌 to your post.",
+        actor: expect.objectContaining({ id: "ckvvy6f5e000001l6b9fh9a3x" })
+      })
+    );
+  });
+
+  it("notifies post owners when someone comments on their post", async () => {
+    const comment = await request(app)
+      .post("/posts/post_self_new/comments")
+      .set("authorization", `Bearer ${noahToken}`)
+      .send({ body: "Praying with you." });
+    const activity = await request(app).get("/activity").set("authorization", `Bearer ${token}`);
+
+    expect(comment.status).toBe(201);
+    expect(activity.body.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "post_comment",
+          message: "Noah James commented on your post.",
+          postId: "post_self_new",
+          actor: expect.objectContaining({ id: "ckvvy6f5e000001l6b9fh9a3x" })
+        })
+      ])
+    );
+  });
+
   it("searches users with friendship status", async () => {
     const response = await request(app).get("/users/search?q=Leah%20Hope").set("authorization", `Bearer ${token}`);
 
@@ -760,16 +887,26 @@ describe("Sanctuary API", () => {
     const response = await request(app)
       .post("/friends/requests/friend_pending/accept")
       .set("authorization", `Bearer ${token}`);
+    const activity = await request(app).get("/activity").set("authorization", `Bearer ${noahToken}`);
 
     expect(response.status).toBe(204);
+    expect(activity.body.items).toEqual([
+      expect.objectContaining({
+        type: "friend_request_accepted",
+        message: "Ava Grace accepted your friend request.",
+        actor: expect.objectContaining({ id: "user_ava" })
+      })
+    ]);
   });
 
   it("declines incoming friend requests", async () => {
     const response = await request(app)
       .post("/friends/requests/friend_decline/decline")
       .set("authorization", `Bearer ${token}`);
+    const activity = await request(app).get("/activity").set("authorization", `Bearer ${leahToken}`);
 
     expect(response.status).toBe(204);
+    expect(activity.body.items).toEqual([]);
   });
 
   it("removes friendships", async () => {

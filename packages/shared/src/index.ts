@@ -11,6 +11,7 @@ export type AllowedReactionEmoji = (typeof ALLOWED_REACTION_EMOJIS)[number];
 export type FriendshipStatus = "pending" | "accepted" | "declined";
 export type PostVisibility = (typeof POST_VISIBILITIES)[number];
 export type PostKind = (typeof POST_KINDS)[number];
+export type ActivityNotificationType = "friend_request_accepted" | "post_reaction" | "post_comment";
 
 export interface ApiErrorShape {
   error: {
@@ -88,6 +89,20 @@ export interface PostReactionsResponse {
 
 export interface FeedResponse {
   items: FeedPost[];
+}
+
+export interface ActivityNotification {
+  id: string;
+  type: ActivityNotificationType;
+  message: string;
+  createdAt: string;
+  emoji: AllowedReactionEmoji | null;
+  postId: string | null;
+  actor: FeedAuthor;
+}
+
+export interface ActivityNotificationsResponse {
+  items: ActivityNotification[];
 }
 
 export interface FriendsListItem {

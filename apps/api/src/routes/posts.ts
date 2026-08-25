@@ -9,6 +9,7 @@ import {
   type AllowedReactionEmoji,
   type PostReactionGroup
 } from "@sanctuary/shared";
+import { createActivityNotification } from "../lib/activity-notifications.js";
 import { ApiError } from "../lib/errors.js";
 import { canInteractWithPost, canViewPost, canViewPostRecord } from "../lib/friendships.js";
 import { prisma } from "../lib/prisma.js";
@@ -345,6 +346,16 @@ postsRouter.post("/:id/reactions", requireAuth, async (req, res, next) => {
       throw new ApiError(403, "POST_FORBIDDEN", "You do not have access to this post.");
     }
 
+    const existingReaction = await prisma.reaction.findUnique({
+      where: {
+        postId_userId_emoji: {
+          postId: post.id,
+          userId: viewerId,
+          emoji: input.emoji
+        }
+      }
+    });
+
     await prisma.reaction.upsert({
       where: {
         postId_userId_emoji: {
@@ -360,6 +371,16 @@ postsRouter.post("/:id/reactions", requireAuth, async (req, res, next) => {
       },
       update: {}
     });
+
+    if (!existingReaction) {
+      await createActivityNotification({
+        recipientId: post.authorId,
+        actorId: viewerId,
+        type: "POST_REACTION",
+        postId: post.id,
+        emoji: input.emoji
+      });
+    }
 
     res.status(204).send();
   } catch (error) {
@@ -432,6 +453,13 @@ postsRouter.post("/:id/comments", requireAuth, async (req, res, next) => {
           }
         }
       }
+    });
+
+    await createActivityNotification({
+      recipientId: post.authorId,
+      actorId: viewerId,
+      type: "POST_COMMENT",
+      postId: post.id
     });
 
     res.status(201).json({

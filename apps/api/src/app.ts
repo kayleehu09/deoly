@@ -2,6 +2,7 @@ import cors from "cors";
 import express from "express";
 import { config } from "./config.js";
 import { errorHandler } from "./lib/errors.js";
+import { activityRouter } from "./routes/activity.js";
 import { authRouter } from "./routes/auth.js";
 import { feedRouter } from "./routes/feed.js";
 import { friendsRouter } from "./routes/friends.js";
@@ -31,7 +32,7 @@ export function createApp() {
   app.use((req, res, next) => {
     const shouldLogRequest =
       shouldLogDebugRequests &&
-      ["/auth", "/feed", "/friends", "/media", "/users"].some((path) => req.path.startsWith(path));
+      ["/activity", "/auth", "/feed", "/friends", "/media", "/users"].some((path) => req.path.startsWith(path));
 
     if (!shouldLogRequest) {
       next();
@@ -52,6 +53,7 @@ export function createApp() {
   });
 
   app.use("/auth", authRouter);
+  app.use("/activity", activityRouter);
   app.use("/me", meRouter);
   app.use("/feed", feedRouter);
   app.use("/media", mediaRouter);

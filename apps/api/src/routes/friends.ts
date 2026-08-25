@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
+import { createActivityNotification } from "../lib/activity-notifications.js";
 import { ApiError } from "../lib/errors.js";
 import { prisma } from "../lib/prisma.js";
 import { requireAuth } from "../middleware/require-auth.js";
@@ -132,6 +133,12 @@ friendsRouter.post("/requests/:id/accept", requireAuth, async (req, res, next) =
         status: "ACCEPTED",
         acceptedAt: new Date()
       }
+    });
+
+    await createActivityNotification({
+      recipientId: friendship.requesterId,
+      actorId: viewerId,
+      type: "FRIEND_REQUEST_ACCEPTED"
     });
 
     res.status(204).send();
