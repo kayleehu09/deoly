@@ -4,6 +4,8 @@ import { PrismaClient, FriendshipStatus, PostKind } from "@prisma/client";
 const prisma = new PrismaClient();
 
 async function main() {
+  await prisma.postReport.deleteMany();
+  await prisma.block.deleteMany();
   await prisma.reaction.deleteMany();
   await prisma.comment.deleteMany();
   await prisma.post.deleteMany();

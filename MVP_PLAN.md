@@ -7,14 +7,13 @@ Post photo
 Feed
 Reacting / Commenting
 Friends (adding, accepting, removing)
-Block / Report
+Block
 Disappearing post
 Permanent posts are deferred until after the MVP; the main posting flow should create 24-hour deolys only.
 
 Safety
-block people, report posts, delete your own posts/account
+block people, delete your own posts/account
 blocking needs to affect feed, search, comments, and friend requests
-reports need somewhere to go, even if it is just an admin list
 account deletion needs to remove or hide a user’s data
 
 Design
@@ -119,11 +118,8 @@ Blocked users disappear from feed
 Blocked users disappear from search
 Blocked users cannot send friend requests
 Blocked users cannot comment/react on your posts
-Report post button
-Save report reason
-Simple admin/report list
 Expected result:
-The app has basic blocking and reporting.
+The app has basic blocking.
 
 Week 8: Delete Features + Polish + Full Test
 Build:
@@ -134,7 +130,7 @@ Polish UI
 Fix weird bugs
 Test with 3 fake users
 Check that posts disappear after 24 hours
-Check login, friends, feed, posting, reactions, comments, block, report, delete
+Check login, friends, feed, posting, reactions, comments, block, delete
 Expected result:
 You have a working private beta MVP.
 
@@ -193,7 +189,7 @@ Post it
 See friends’ posts
 React/comment
 Have posts disappear after 24 hours
-Block/report someone if needed
+Block someone if needed
 Later on:
 add text box option to posts**
 save your own posts to your account of “deolys” like BeReal memories

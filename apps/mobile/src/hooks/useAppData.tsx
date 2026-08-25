@@ -18,6 +18,7 @@ import {
   removeReaction,
   type PostProgressStage
 } from '../services/posts';
+import { blockUser } from '../services/safety';
 import { getAllUsers } from '../services/users';
 import { isUnauthorizedApiError, type UserProfile } from '../services/auth';
 import type { FeedPost, Post, PostReactionGroup, ReactionEmoji, User } from '../types/models';
@@ -38,6 +39,7 @@ type AppDataContextValue = {
   togglePostReaction: (post: FeedPost, emoji: ReactionEmoji) => Promise<void>;
   loadPostReactions: (postId: string, emoji: ReactionEmoji) => Promise<PostReactionGroup[]>;
   commentOnPost: (postId: string, body: string) => Promise<void>;
+  blockUserById: (userId: string) => Promise<void>;
 };
 
 const AppDataContext = createContext<AppDataContextValue | undefined>(undefined);
@@ -191,6 +193,14 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       }
 
       await addComment(postId, body, auth.session.token);
+      await loadAppData();
+    },
+    blockUserById: async (userId) => {
+      if (!auth) {
+        return;
+      }
+
+      await blockUser(userId, auth.session.token);
       await loadAppData();
     }
   };

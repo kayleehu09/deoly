@@ -1,4 +1,5 @@
 import { prisma } from "./prisma.js";
+import { areUsersBlocked, getBlockedUserIds } from "./blocks.js";
 
 type ViewablePost = {
   authorId: string;
@@ -14,12 +15,20 @@ export async function getAcceptedFriendIds(userId: string) {
     }
   });
 
-  return friendships.map((friendship) => (friendship.requesterId === userId ? friendship.addresseeId : friendship.requesterId));
+  const blockedUserIds = new Set(await getBlockedUserIds(userId));
+
+  return friendships
+    .map((friendship) => (friendship.requesterId === userId ? friendship.addresseeId : friendship.requesterId))
+    .filter((friendId) => !blockedUserIds.has(friendId));
 }
 
 export async function canViewPost(viewerId: string, authorId: string) {
   if (viewerId === authorId) {
     return true;
+  }
+
+  if (await areUsersBlocked(viewerId, authorId)) {
+    return false;
   }
 
   const friendship = await prisma.friendship.findFirst({

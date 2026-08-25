@@ -10,6 +10,7 @@ import {
   type PostReactionGroup
 } from "@sanctuary/shared";
 import { createActivityNotification } from "../lib/activity-notifications.js";
+import { getBlockedUserIds } from "../lib/blocks.js";
 import { ApiError } from "../lib/errors.js";
 import { canInteractWithPost, canViewPost, canViewPostRecord } from "../lib/friendships.js";
 import { prisma } from "../lib/prisma.js";
@@ -303,6 +304,7 @@ postsRouter.get("/:id/reactions", requireAuth, async (req, res, next) => {
       throw new ApiError(403, "POST_FORBIDDEN", "You do not have access to this post.");
     }
 
+    const blockedUserIds = new Set(await getBlockedUserIds(viewerId));
     const groupsByEmoji = new Map<AllowedReactionEmoji, PostReactionGroup>();
 
     const visibleEmojis = query.emoji ? [query.emoji] : ALLOWED_REACTION_EMOJIS;
@@ -315,7 +317,7 @@ postsRouter.get("/:id/reactions", requireAuth, async (req, res, next) => {
     }
 
     for (const reaction of post.reactions) {
-      if (visibleEmojis.includes(reaction.emoji as AllowedReactionEmoji)) {
+      if (visibleEmojis.includes(reaction.emoji as AllowedReactionEmoji) && !blockedUserIds.has(reaction.userId)) {
         groupsByEmoji.get(reaction.emoji as AllowedReactionEmoji)?.users.push(reaction.user);
       }
     }

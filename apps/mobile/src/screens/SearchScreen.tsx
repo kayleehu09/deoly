@@ -22,6 +22,7 @@ import { searchUsers, type SearchFriendshipStatus, type SearchUserResult } from 
 
 const DEFAULT_AVATAR_URL = 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=400&q=80';
 const MIN_SEARCH_LENGTH = 2;
+const EMPTY_SEARCH_QUERY = '';
 const SEARCH_TIMEOUT_MS = 12000;
 const FRIEND_ACTION_TIMEOUT_MS = 12000;
 
@@ -105,16 +106,18 @@ export function SearchScreen() {
   const [error, setError] = useState<string | null>(null);
   const trimmedQuery = query.trim();
   const canSearch = trimmedQuery.length >= MIN_SEARCH_LENGTH;
+  const shouldShowSuggestions = trimmedQuery.length === 0;
+  const canLoadUsers = shouldShowSuggestions || canSearch;
   const token = auth?.session.token;
 
   const refreshSearchResults = async () => {
-    if (!token || !canSearch) {
+    if (!token || !canLoadUsers) {
       setResults([]);
       return;
     }
 
     const response = await withTimeout(
-      searchUsers(trimmedQuery, token),
+      searchUsers(shouldShowSuggestions ? EMPTY_SEARCH_QUERY : trimmedQuery, token),
       SEARCH_TIMEOUT_MS,
       'Search is taking too long. Check that the API is running, then try again.'
     );
@@ -149,7 +152,7 @@ export function SearchScreen() {
         return;
       }
 
-      if (normalizedSearchTerm.length < MIN_SEARCH_LENGTH) {
+      if (normalizedSearchTerm.length > 0 && normalizedSearchTerm.length < MIN_SEARCH_LENGTH) {
         setResults([]);
         setIsLoading(false);
         setError(null);
@@ -187,7 +190,7 @@ export function SearchScreen() {
   );
 
   useEffect(() => {
-    if (!canSearch) {
+    if (!canLoadUsers) {
       setResults([]);
       setIsLoading(false);
       setError(null);
@@ -201,7 +204,7 @@ export function SearchScreen() {
     return () => {
       clearTimeout(searchTimer);
     };
-  }, [canSearch, runSearch, trimmedQuery]);
+  }, [canLoadUsers, runSearch, trimmedQuery]);
 
   async function runFriendAction({
     actionId,
@@ -309,7 +312,7 @@ export function SearchScreen() {
 
   const helperText = useMemo(() => {
     if (!canSearch) {
-      return 'Type at least 2 characters to find people.';
+      return shouldShowSuggestions ? 'Suggested people on Deoly.' : 'Type at least 2 characters to find people.';
     }
 
     if (error) {
@@ -317,7 +320,7 @@ export function SearchScreen() {
     }
 
     return null;
-  }, [canSearch, error]);
+  }, [canSearch, error, shouldShowSuggestions]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -355,10 +358,12 @@ export function SearchScreen() {
           contentContainerStyle={styles.resultsContent}
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
-            canSearch && !isLoading && !error ? (
+            canLoadUsers && !isLoading && !error ? (
               <View style={styles.emptyState}>
-                <Text style={styles.emptyTitle}>No people found</Text>
-                <Text style={styles.emptyText}>Try a different name or username.</Text>
+                <Text style={styles.emptyTitle}>{shouldShowSuggestions ? 'No suggestions yet' : 'No people found'}</Text>
+                <Text style={styles.emptyText}>
+                  {shouldShowSuggestions ? 'People who join the app will show here.' : 'Try a different name or username.'}
+                </Text>
               </View>
             ) : null
           }

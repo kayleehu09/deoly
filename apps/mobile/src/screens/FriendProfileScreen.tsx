@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useMemo, useState } from 'react';
-import { Image, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Modal, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { AvatarPreviewModal } from '../components/AvatarPreviewModal';
 import { PostCard } from '../components/PostCard';
@@ -9,7 +9,6 @@ import { colors, radii, spacing, typography } from '../constants/theme';
 import { useAppData } from '../hooks/useAppData';
 import { useAuth } from '../hooks/useAuth';
 import { acceptFriendRequest, declineFriendRequest, removeFriend } from '../services/friends';
-import type { FeedPost } from '../types/models';
 import type { RootStackParamList } from '../types/navigation';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'FriendProfile'>;
@@ -30,13 +29,14 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string)
 
 export function FriendProfileScreen({ navigation, route }: Props) {
   const { auth } = useAuth();
-  const { users, feedPosts, refreshAppData } = useAppData();
-  const [avatarPost, setAvatarPost] = useState<FeedPost | null>(null);
+  const { users, feedPosts, refreshAppData, blockUserById } = useAppData();
   const [isHeaderAvatarVisible, setIsHeaderAvatarVisible] = useState(false);
+  const [isSafetyMenuVisible, setIsSafetyMenuVisible] = useState(false);
   const [friendship, setFriendship] = useState<FriendshipSnapshot | null>(route.params.friendship ?? null);
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [hideVisiblePosts, setHideVisiblePosts] = useState(false);
+  const [isBlocked, setIsBlocked] = useState(false);
   const userId = route.params.userId;
   const userPosts = useMemo(() => feedPosts.filter((post) => post.userId === userId), [feedPosts, userId]);
   const visibleUserPosts = hideVisiblePosts ? [] : userPosts;
@@ -115,6 +115,40 @@ export function FriendProfileScreen({ navigation, route }: Props) {
     }
 
     void runFriendAction(null, () => removeFriend(friendship.friendshipId, token!), friendship.friendshipId);
+  }
+
+  function handleBlockProfileUser() {
+    if (!token || busyAction) {
+      return;
+    }
+
+    const previousFriendship = friendship;
+    const previousHideVisiblePosts = hideVisiblePosts;
+    const previousIsBlocked = isBlocked;
+    setBusyAction('block-profile');
+    setActionError(null);
+    setFriendship(null);
+    setHideVisiblePosts(true);
+    setIsSafetyMenuVisible(false);
+
+    void (async () => {
+      try {
+        await withTimeout(
+          blockUserById(userId),
+          FRIENDS_TIMEOUT_MS,
+          'Block is taking too long to update. Make sure the API is running, then try again.'
+        );
+        setIsBlocked(true);
+        await refreshAppData();
+      } catch (err) {
+        setFriendship(previousFriendship);
+        setHideVisiblePosts(previousHideVisiblePosts);
+        setIsBlocked(previousIsBlocked);
+        setActionError(err instanceof Error ? err.message : 'Could not block this user.');
+      } finally {
+        setBusyAction(null);
+      }
+    })();
   }
 
   if (!user) {
@@ -198,9 +232,34 @@ export function FriendProfileScreen({ navigation, route }: Props) {
                 </Pressable>
               )}
             </View>
+          ) : isBlocked ? (
+            <View style={styles.blockedBanner}>
+              <Ionicons name="checkmark-circle" size={16} color={colors.success} />
+              <Text style={styles.blockedBannerText}>Blocked</Text>
+            </View>
           ) : actionError ? (
             <Text style={styles.errorText}>{actionError}</Text>
-          ) : null}
+          ) : (
+            <View style={styles.topBarFill} />
+          )}
+          {isBlocked ? (
+            <View style={styles.topBarSpacer} />
+          ) : (
+            <Pressable
+              accessibilityLabel="Open profile safety actions"
+              accessibilityRole="button"
+              disabled={busyAction === 'block-profile'}
+              hitSlop={8}
+              onPress={() => setIsSafetyMenuVisible(true)}
+              style={({ pressed }) => [
+                styles.profileSafetyButton,
+                pressed ? styles.pressed : null,
+                busyAction === 'block-profile' ? styles.disabled : null
+              ]}
+            >
+              <Ionicons name="ellipsis-horizontal" size={22} color={colors.text} />
+            </Pressable>
+          )}
         </View>
 
         <View style={styles.profileHeader}>
@@ -218,21 +277,36 @@ export function FriendProfileScreen({ navigation, route }: Props) {
           </View>
         </View>
 
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Visible posts</Text>
-        </View>
-
-        {visibleUserPosts.length === 0 ? (
+        {isBlocked ? (
           <View style={styles.emptyState}>
-            <Text style={styles.emptyTitle}>No visible posts</Text>
-            <Text style={styles.emptyText}>Posts you can see from this account will show here.</Text>
+            <Text style={styles.emptyTitle}>You blocked @{user.username}</Text>
+            <Text style={styles.emptyText}>Their posts are hidden from your feed and search, and they cannot interact with your posts.</Text>
+            <Pressable accessibilityRole="button" onPress={() => navigation.goBack()} style={styles.doneButton}>
+              <Text style={styles.doneButtonText}>Back to feed</Text>
+            </Pressable>
           </View>
         ) : (
-          <View style={styles.posts}>
-            {visibleUserPosts.map((post) => (
-              <PostCard post={post} key={post.id} onAvatarPress={setAvatarPost} />
-            ))}
-          </View>
+          <>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Visible posts</Text>
+            </View>
+
+            {visibleUserPosts.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyTitle}>No visible posts</Text>
+                <Text style={styles.emptyText}>Posts you can see from this account will show here.</Text>
+              </View>
+            ) : (
+              <View style={styles.posts}>
+                {visibleUserPosts.map((post) => (
+                  <PostCard
+                    post={post}
+                    key={post.id}
+                  />
+                ))}
+              </View>
+            )}
+          </>
         )}
       </ScrollView>
 
@@ -240,12 +314,38 @@ export function FriendProfileScreen({ navigation, route }: Props) {
         displayName={user.displayName}
         imageUri={user.profileImageUrl}
         username={user.username}
-        visible={isHeaderAvatarVisible || Boolean(avatarPost)}
+        visible={isHeaderAvatarVisible}
         onClose={() => {
-          setAvatarPost(null);
           setIsHeaderAvatarVisible(false);
         }}
       />
+      <Modal animationType="fade" transparent visible={isSafetyMenuVisible} onRequestClose={() => setIsSafetyMenuVisible(false)}>
+        <View style={styles.safetyOverlay}>
+          <Pressable style={styles.safetyBackdrop} onPress={() => setIsSafetyMenuVisible(false)} />
+          <View style={styles.safetySheet}>
+            <View style={styles.safetyHeader}>
+              <Text style={styles.safetyTitle}>Profile safety</Text>
+              <Pressable
+                accessibilityLabel="Close safety actions"
+                accessibilityRole="button"
+                hitSlop={8}
+                onPress={() => setIsSafetyMenuVisible(false)}
+              >
+                <Ionicons name="close" size={20} color={colors.textMuted} />
+              </Pressable>
+            </View>
+            <Pressable
+              accessibilityRole="button"
+              disabled={busyAction === 'block-profile'}
+              onPress={handleBlockProfileUser}
+              style={[styles.safetyActionButton, busyAction === 'block-profile' && styles.disabled]}
+            >
+              <Ionicons name="ban-outline" size={18} color={colors.surface} />
+              <Text style={styles.safetyActionText}>Block @{user.username}</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -273,6 +373,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm
+  },
+  topBarFill: {
+    flex: 1
+  },
+  topBarSpacer: {
+    width: 36,
+    height: 36
   },
   profileHeader: {
     alignItems: 'center',
@@ -354,6 +461,75 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     backgroundColor: colors.surface
   },
+  profileSafetyButton: {
+    width: 36,
+    height: 36,
+    borderRadius: radii.pill,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surface
+  },
+  safetyOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end'
+  },
+  safetyBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.24)'
+  },
+  safetySheet: {
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.lg,
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: radii.lg,
+    borderTopRightRadius: radii.lg
+  },
+  safetyHeader: {
+    minHeight: 32,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between'
+  },
+  safetyTitle: {
+    color: colors.text,
+    fontFamily: typography.titleFamily,
+    fontSize: 18,
+    fontWeight: '700'
+  },
+  safetyActionButton: {
+    minHeight: 44,
+    borderRadius: radii.md,
+    backgroundColor: colors.danger,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs
+  },
+  safetyActionText: {
+    color: colors.surface,
+    fontFamily: typography.bodyFamily,
+    fontSize: 14,
+    fontWeight: '700'
+  },
+  blockedBanner: {
+    minHeight: 32,
+    borderRadius: radii.pill,
+    backgroundColor: colors.surface,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.sm
+  },
+  blockedBannerText: {
+    color: colors.success,
+    fontFamily: typography.bodyFamily,
+    fontSize: 13,
+    fontWeight: '700'
+  },
   bannerActionText: {
     color: colors.textMuted,
     fontFamily: typography.bodyFamily,
@@ -400,6 +576,20 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 22,
     textAlign: 'center'
+  },
+  doneButton: {
+    alignSelf: 'center',
+    minHeight: 40,
+    borderRadius: radii.pill,
+    backgroundColor: colors.text,
+    justifyContent: 'center',
+    paddingHorizontal: spacing.md
+  },
+  doneButtonText: {
+    color: colors.surface,
+    fontFamily: typography.bodyFamily,
+    fontSize: 14,
+    fontWeight: '700'
   },
   errorText: {
     color: colors.danger,

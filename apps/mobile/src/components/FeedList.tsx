@@ -12,6 +12,7 @@ type FeedListProps = {
   onRefresh: () => Promise<void>;
   onUserPress?: (post: FeedPost) => void;
   onAvatarPress?: (post: FeedPost) => void;
+  avatarAccessibilityLabel?: string | ((post: FeedPost) => string);
   onReactionPress?: (post: FeedPost, emoji: ReactionEmoji) => Promise<void>;
   onReactionDetailsPress?: (post: FeedPost, emoji: ReactionEmoji) => void;
   onCommentSubmit?: (post: FeedPost, body: string) => Promise<void>;
@@ -25,6 +26,7 @@ export function FeedList({
   onRefresh,
   onUserPress,
   onAvatarPress,
+  avatarAccessibilityLabel,
   onReactionPress,
   onReactionDetailsPress,
   onCommentSubmit,
@@ -55,12 +57,14 @@ export function FeedList({
       onLayout={(event) => setFeedHeight(event.nativeEvent.layout.height)}
       keyExtractor={(item) => item.id}
       contentContainerStyle={styles.content}
+      keyboardShouldPersistTaps="handled"
       renderItem={({ item }) => (
         <PostCard
           post={item}
           cardHeight={feedHeight || undefined}
           onUserPress={onUserPress}
           onAvatarPress={onAvatarPress}
+          avatarAccessibilityLabel={avatarAccessibilityLabel}
           onReactionPress={onReactionPress}
           onReactionDetailsPress={onReactionDetailsPress}
           onCommentSubmit={onCommentSubmit}

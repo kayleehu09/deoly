@@ -34,6 +34,15 @@ vi.mock("../lib/prisma.js", () => {
     createdAt?: Date;
     user?: { id: string; displayName: string; username: string; avatarUrl: string | null };
   };
+  type MockComment = {
+    id: string;
+    postId: string;
+    authorId: string;
+    body: string;
+    createdAt: Date;
+    updatedAt: Date;
+    author: { id: string; displayName: string; username: string; avatarUrl: string | null };
+  };
   const users = [
     {
       id: "user_ava",
@@ -217,6 +226,21 @@ vi.mock("../lib/prisma.js", () => {
     createdAt: Date;
     actor?: { id: string; displayName: string; username: string; avatarUrl: string | null };
   }> = [];
+  const blocks: Array<{
+    id: string;
+    blockerId: string;
+    blockedId: string;
+    createdAt: Date;
+    blocked?: { id: string; displayName: string; username: string; avatarUrl: string | null };
+  }> = [];
+  const postReports: Array<{
+    id: string;
+    postId: string;
+    reporterId: string;
+    reason: string;
+    details: string | null;
+    createdAt: Date;
+  }> = [];
 
   return {
     prisma: {
@@ -337,6 +361,98 @@ vi.mock("../lib/prisma.js", () => {
           const index = friendships.findIndex((entry) => entry.id === where.id);
           const [deleted] = index >= 0 ? friendships.splice(index, 1) : [];
           return deleted;
+        }),
+        deleteMany: vi.fn(async ({ where }) => {
+          const originalLength = friendships.length;
+          for (let index = friendships.length - 1; index >= 0; index -= 1) {
+            const friendship = friendships[index];
+            const matches = where.OR.some(
+              (condition: { requesterId?: string; addresseeId?: string }) =>
+                (!condition.requesterId || friendship.requesterId === condition.requesterId) &&
+                (!condition.addresseeId || friendship.addresseeId === condition.addresseeId)
+            );
+
+            if (matches) {
+              friendships.splice(index, 1);
+            }
+          }
+
+          return { count: originalLength - friendships.length };
+        })
+      },
+      block: {
+        findMany: vi.fn(async ({ where } = {}) => {
+          const filteredBlocks = blocks.filter((block) => {
+            if (where?.blockerId) {
+              return block.blockerId === where.blockerId;
+            }
+
+            return (
+              !where?.OR ||
+              where.OR.some(
+                (condition: { blockerId?: string; blockedId?: string }) =>
+                  (!condition.blockerId || block.blockerId === condition.blockerId) &&
+                  (!condition.blockedId || block.blockedId === condition.blockedId)
+              )
+            );
+          });
+
+          return filteredBlocks.map((block) => ({
+            ...block,
+            blocked:
+              block.blocked ??
+              users.find((user) => user.id === block.blockedId) ?? {
+                id: block.blockedId,
+                displayName: "Unknown",
+                username: "unknown",
+                avatarUrl: null
+              }
+          }));
+        }),
+        findFirst: vi.fn(async ({ where }) => {
+          return (
+            blocks.find((block) =>
+              where.OR.some(
+                (condition: { blockerId?: string; blockedId?: string }) =>
+                  block.blockerId === condition.blockerId && block.blockedId === condition.blockedId
+              )
+            ) ?? null
+          );
+        }),
+        upsert: vi.fn(async ({ where, create }) => {
+          const input = where.blockerId_blockedId;
+          const existing = blocks.find((block) => block.blockerId === input.blockerId && block.blockedId === input.blockedId);
+
+          if (existing) {
+            return existing;
+          }
+
+          const blocked = users.find((user) => user.id === create.blockedId);
+          const block = {
+            id: `block_${blocks.length + 1}`,
+            createdAt: now,
+            blockerId: create.blockerId,
+            blockedId: create.blockedId,
+            blocked: blocked
+              ? { id: blocked.id, displayName: blocked.displayName, username: blocked.username, avatarUrl: blocked.avatarUrl }
+              : undefined
+          };
+          blocks.push(block);
+          return block;
+        }),
+        deleteMany: vi.fn(async ({ where }) => {
+          const originalLength = blocks.length;
+          for (let index = blocks.length - 1; index >= 0; index -= 1) {
+            const block = blocks[index];
+            if (
+              (!where.blockerId || block.blockerId === where.blockerId) &&
+              (!where.blockedId || block.blockedId === where.blockedId)
+            ) {
+              blocks.splice(index, 1);
+            }
+          }
+
+          return { count: originalLength - blocks.length };
         })
       },
       post: {
@@ -402,13 +518,19 @@ vi.mock("../lib/prisma.js", () => {
         deleteMany: vi.fn(async () => ({ count: 1 }))
       },
       comment: {
-        create: vi.fn(async ({ data }) => ({
-          id: "comment_1",
-          createdAt: now,
-          updatedAt: now,
-          author: { id: "user_ava", displayName: "Ava Grace", username: "avafaith", avatarUrl: null },
+        create: vi.fn(async ({ data }) => {
+          const author = users.find((user) => user.id === data.authorId) ?? users[0];
+          const comment = {
+            id: `comment_${posts.reduce((total, post) => total + post.comments.length, 0) + 1}`,
+            createdAt: now,
+            updatedAt: now,
+            author: { id: author.id, displayName: author.displayName, username: author.username, avatarUrl: author.avatarUrl },
             ...data
-        }))
+          };
+          const post = posts.find((item) => item.id === data.postId);
+          (post?.comments as MockComment[] | undefined)?.push(comment);
+          return comment;
+        })
       },
       activityNotification: {
         create: vi.fn(async ({ data }) => {
@@ -446,6 +568,48 @@ vi.mock("../lib/prisma.js", () => {
           }
 
           return filteredNotifications.slice(0, take ?? filteredNotifications.length);
+        })
+      },
+      postReport: {
+        create: vi.fn(async ({ data }) => {
+          const report = {
+            id: `report_${postReports.length + 1}`,
+            createdAt: now,
+            details: data.details ?? null,
+            ...data
+          };
+          postReports.push(report);
+          return report;
+        }),
+        findMany: vi.fn(async () => {
+          return postReports.map((report) => {
+            const post = posts.find((item) => item.id === report.postId);
+            const reporter = users.find((user) => user.id === report.reporterId);
+
+            return {
+              ...report,
+              reporter: reporter
+                ? { id: reporter.id, displayName: reporter.displayName, username: reporter.username, avatarUrl: reporter.avatarUrl }
+                : { id: report.reporterId, displayName: "Unknown", username: "unknown", avatarUrl: null },
+              post: post
+                ? {
+                    ...post,
+                    author:
+                      users.find((user) => user.id === post.authorId) ?? {
+                        id: post.authorId,
+                        displayName: "Unknown",
+                        username: "unknown",
+                        avatarUrl: null
+                      }
+                  }
+                : {
+                    id: report.postId,
+                    body: "",
+                    createdAt: now,
+                    author: { id: "unknown", displayName: "Unknown", username: "unknown", avatarUrl: null }
+                  }
+            };
+          });
         })
       }
     }
@@ -831,6 +995,29 @@ describe("Sanctuary API", () => {
     );
   });
 
+  it("returns a newly created comment when the post is reloaded", async () => {
+    const comment = await request(app)
+      .post("/posts/post_self_new/comments")
+      .set("authorization", `Bearer ${noahToken}`)
+      .send({ body: "Praying with you." });
+    const post = await request(app).get("/posts/post_self_new").set("authorization", `Bearer ${noahToken}`);
+
+    expect(comment.status).toBe(201);
+    expect(post.status).toBe(200);
+    expect(post.body.post.commentCount).toBeGreaterThanOrEqual(1);
+    expect(post.body.post.recentComments).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          body: "Praying with you.",
+          author: expect.objectContaining({
+            id: "ckvvy6f5e000001l6b9fh9a3x",
+            username: "noahlight"
+          })
+        })
+      ])
+    );
+  });
+
   it("searches users with friendship status", async () => {
     const response = await request(app).get("/users/search?q=Leah%20Hope").set("authorization", `Bearer ${token}`);
 
@@ -857,6 +1044,40 @@ describe("Sanctuary API", () => {
         username: "avafaith"
       })
     ]);
+  });
+
+  it("returns all other users as suggestions for empty search", async () => {
+    const response = await request(app).get("/users/search").set("authorization", `Bearer ${token}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body.users).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          displayName: "Noah James",
+          friendshipStatus: "accepted",
+          username: "noahlight"
+        }),
+        expect.objectContaining({
+          displayName: "Mia Rose",
+          friendshipStatus: "none",
+          username: "miaprays"
+        }),
+        expect.objectContaining({
+          displayName: "Leah Hope",
+          friendshipStatus: "pending_incoming",
+          username: "leahhope"
+        })
+      ])
+    );
+    expect(response.body.users).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          displayName: "Ava Grace",
+          friendshipStatus: "self",
+          username: "avafaith"
+        })
+      ])
+    );
   });
 
   it("returns none friendship status for unconnected search results", async () => {
@@ -926,5 +1147,53 @@ describe("Sanctuary API", () => {
       .set("authorization", `Bearer ${login.body.session.token}`);
 
     expect(response.status).toBe(204);
+  });
+
+  it("saves post reports for admin review", async () => {
+    const report = await request(app)
+      .post("/safety/posts/post_1/reports")
+      .set("authorization", `Bearer ${token}`)
+      .send({ reason: "This needs review." });
+    const reports = await request(app).get("/safety/reports").set("authorization", `Bearer ${token}`);
+
+    expect(report.status).toBe(201);
+    expect(report.body.reportId).toBe("report_1");
+    expect(reports.status).toBe(200);
+    expect(reports.body.reports).toEqual([
+      expect.objectContaining({
+        id: "report_1",
+        reason: "This needs review.",
+        reporter: expect.objectContaining({ id: "user_ava" }),
+        post: expect.objectContaining({ id: "post_1" })
+      })
+    ]);
+  });
+
+  it("hides blocked users and prevents blocked interactions", async () => {
+    const block = await request(app)
+      .post("/safety/blocks")
+      .set("authorization", `Bearer ${token}`)
+      .send({ userId: "ckvvy6f5e000001l6b9fh9a3x" });
+    const feed = await request(app).get("/feed").set("authorization", `Bearer ${token}`);
+    const search = await request(app).get("/users/search?q=Noah").set("authorization", `Bearer ${token}`);
+    const friendship = await request(app)
+      .post("/friends/requests")
+      .set("authorization", `Bearer ${token}`)
+      .send({ userId: "ckvvy6f5e000001l6b9fh9a3x" });
+    const comment = await request(app)
+      .post("/posts/post_self_new/comments")
+      .set("authorization", `Bearer ${noahToken}`)
+      .send({ body: "Trying to comment after a block." });
+    const reaction = await request(app)
+      .post("/posts/post_self_new/reactions")
+      .set("authorization", `Bearer ${noahToken}`)
+      .send({ emoji: "🔥" });
+
+    expect(block.status).toBe(201);
+    expect(feed.body.items.map((post: { id: string }) => post.id)).not.toContain("post_1");
+    expect(search.body.users).toEqual([]);
+    expect(friendship.status).toBe(403);
+    expect(comment.status).toBe(403);
+    expect(reaction.status).toBe(403);
   });
 });

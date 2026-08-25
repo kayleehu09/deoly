@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { createActivityNotification } from "../lib/activity-notifications.js";
+import { areUsersBlocked, getBlockedUserIds } from "../lib/blocks.js";
 import { ApiError } from "../lib/errors.js";
 import { prisma } from "../lib/prisma.js";
 import { requireAuth } from "../middleware/require-auth.js";
@@ -14,6 +15,7 @@ export const friendsRouter = Router();
 friendsRouter.get("/", requireAuth, async (req, res, next) => {
   try {
     const viewerId = req.auth!.user.id;
+    const blockedUserIds = new Set(await getBlockedUserIds(viewerId));
 
     const friendships = await prisma.friendship.findMany({
       where: {
@@ -43,11 +45,15 @@ friendsRouter.get("/", requireAuth, async (req, res, next) => {
     });
 
     res.json({
-      friends: friendships.map((friendship) => {
+      friends: friendships.flatMap((friendship) => {
         const isRequester = friendship.requesterId === viewerId;
         const otherUser = isRequester ? friendship.addressee : friendship.requester;
 
-        return {
+        if (blockedUserIds.has(otherUser.id)) {
+          return [];
+        }
+
+        return [{
           friendshipId: friendship.id,
           status: friendship.status.toLowerCase(),
           direction:
@@ -55,7 +61,7 @@ friendsRouter.get("/", requireAuth, async (req, res, next) => {
           user: otherUser,
           createdAt: friendship.createdAt.toISOString(),
           acceptedAt: friendship.acceptedAt?.toISOString() ?? null
-        };
+        }];
       })
     });
   } catch (error) {
@@ -70,6 +76,10 @@ friendsRouter.post("/requests", requireAuth, async (req, res, next) => {
 
     if (input.userId === viewerId) {
       throw new ApiError(400, "FRIEND_SELF", "You cannot add yourself.");
+    }
+
+    if (await areUsersBlocked(viewerId, input.userId)) {
+      throw new ApiError(403, "USER_BLOCKED", "You cannot send a friend request to this user.");
     }
 
     const existing = await prisma.friendship.findFirst({

@@ -4,9 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
   Image,
   Keyboard,
-  KeyboardAvoidingView,
   Modal,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -25,6 +23,7 @@ type PostCardProps = {
   cardHeight?: number;
   onUserPress?: (post: FeedPost) => void;
   onAvatarPress?: (post: FeedPost) => void;
+  avatarAccessibilityLabel?: string | ((post: FeedPost) => string);
   onReactionPress?: (post: FeedPost, emoji: ReactionEmoji) => Promise<void>;
   onReactionDetailsPress?: (post: FeedPost, emoji: ReactionEmoji) => void;
   onCommentSubmit?: (post: FeedPost, body: string) => Promise<void>;
@@ -58,6 +57,7 @@ export function PostCard({
   cardHeight,
   onUserPress,
   onAvatarPress,
+  avatarAccessibilityLabel,
   onReactionPress,
   onReactionDetailsPress,
   onCommentSubmit,
@@ -68,13 +68,20 @@ export function PostCard({
   const [isUpdating, setIsUpdating] = useState(false);
   const [interactionError, setInteractionError] = useState<string | null>(null);
   const [isReactionRailExpanded, setIsReactionRailExpanded] = useState(false);
-  const [isComposerDocked, setIsComposerDocked] = useState(false);
   const [isCaptionExpanded, setIsCaptionExpanded] = useState(false);
-  const dockedInputRef = useRef<TextInput>(null);
+  const [isSubmittingComment, setIsSubmittingComment] = useState(false);
+  const [isCommentComposerOpen, setIsCommentComposerOpen] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const commentInputRef = useRef<TextInput>(null);
+  const commentBodyRef = useRef('');
+  const isSubmittingCommentRef = useRef(false);
   const visibleComments = showAllComments ? post.recentComments : [];
   const totalReactionCount = Object.values(post.reactionCounts).reduce((total, count) => total + (count ?? 0), 0);
   const shouldShowCaptionMore = post.caption.length > 96;
   const commentThreadLabel = post.commentCount > 0 ? `View all ${post.commentCount} comments` : 'Be the first to comment';
+  const avatarLabel = typeof avatarAccessibilityLabel === 'function'
+    ? avatarAccessibilityLabel(post)
+    : avatarAccessibilityLabel;
 
   const renderReactionIcon = (emoji: ReactionEmoji, isActive: boolean) => {
     const materialIconName = MATERIAL_REACTION_ICON_BY_EMOJI[emoji];
@@ -119,42 +126,87 @@ export function PostCard({
   };
 
   const handleCommentSubmit = async () => {
-    const trimmedBody = commentBody.trim();
+    const trimmedBody = commentBodyRef.current.trim();
 
-    if (!trimmedBody || !onCommentSubmit) {
+    if (isUpdating || isSubmittingCommentRef.current || !trimmedBody || !onCommentSubmit) {
       return;
     }
 
     try {
+      isSubmittingCommentRef.current = true;
       setIsUpdating(true);
+      setIsSubmittingComment(true);
       setInteractionError(null);
-      await onCommentSubmit(post, trimmedBody);
-      setCommentBody('');
-      setIsComposerDocked(false);
+      setIsCommentComposerOpen(false);
       Keyboard.dismiss();
+      await onCommentSubmit(post, trimmedBody);
+      commentBodyRef.current = '';
+      setCommentBody('');
     } catch (err) {
+      setIsCommentComposerOpen(true);
       setInteractionError(err instanceof Error ? err.message : 'Could not add comment.');
     } finally {
+      isSubmittingCommentRef.current = false;
+      setIsSubmittingComment(false);
       setIsUpdating(false);
     }
   };
 
-  const closeDockedComposer = () => {
-    setIsComposerDocked(false);
+  const handleCommentBodyChange = (nextBody: string) => {
+    commentBodyRef.current = nextBody;
+    setCommentBody(nextBody);
+  };
+
+  const openCommentComposer = () => {
+    if (isSubmittingComment || !onCommentSubmit) {
+      return;
+    }
+
+    setInteractionError(null);
+    setIsCommentComposerOpen(true);
+  };
+
+  const closeCommentComposer = () => {
+    if (isSubmittingComment) {
+      return;
+    }
+
+    setIsCommentComposerOpen(false);
     Keyboard.dismiss();
+    setKeyboardHeight(0);
   };
 
   useEffect(() => {
-    if (!isComposerDocked) {
+    if (!isCommentComposerOpen) {
       return;
     }
 
     const focusTimer = setTimeout(() => {
-      dockedInputRef.current?.focus();
-    }, 50);
+      commentInputRef.current?.focus();
+    }, 80);
 
     return () => clearTimeout(focusTimer);
-  }, [isComposerDocked]);
+  }, [isCommentComposerOpen]);
+
+  useEffect(() => {
+    const handleKeyboardFrameChange = (event: { endCoordinates: { height: number } }) => {
+      setKeyboardHeight(event.endCoordinates.height);
+    };
+    const handleKeyboardHide = () => {
+      setKeyboardHeight(0);
+    };
+
+    const subscriptions = [
+      Keyboard.addListener('keyboardWillChangeFrame', handleKeyboardFrameChange),
+      Keyboard.addListener('keyboardDidShow', handleKeyboardFrameChange),
+      Keyboard.addListener('keyboardWillHide', handleKeyboardHide),
+      Keyboard.addListener('keyboardDidHide', handleKeyboardHide)
+    ];
+
+    return () => {
+      subscriptions.forEach((subscription) => subscription.remove());
+    };
+  }, []);
 
   return (
     <>
@@ -186,7 +238,7 @@ export function PostCard({
             <View style={styles.header}>
               <View style={styles.userRow}>
                 <Pressable
-                  accessibilityLabel={`Preview ${post.user.displayName}'s profile picture`}
+                  accessibilityLabel={avatarLabel ?? `Preview ${post.user.displayName}'s profile picture`}
                   accessibilityRole="imagebutton"
                   onPress={() => onAvatarPress?.(post)}
                   style={[styles.avatarRing, post.isCloseFriend && styles.avatarRingClose]}
@@ -203,9 +255,6 @@ export function PostCard({
                   <Text style={styles.meta}>{formatRelativeTime(post.createdAt)}</Text>
                 </Pressable>
               </View>
-              <Pressable hitSlop={10}>
-                <Ionicons name="ellipsis-vertical" size={20} color={colors.surface} />
-              </Pressable>
             </View>
 
             <View style={styles.mediaMeta}>
@@ -323,8 +372,8 @@ export function PostCard({
                 <Pressable
                   accessibilityLabel="Write a supportive reply"
                   accessibilityRole="button"
-                  disabled={isUpdating || !onCommentSubmit}
-                  onPress={() => setIsComposerDocked(true)}
+                  disabled={isSubmittingComment || !onCommentSubmit}
+                  onPress={openCommentComposer}
                   style={styles.inlineCommentTrigger}
                 >
                   <Text
@@ -336,11 +385,12 @@ export function PostCard({
                 </Pressable>
                 <Pressable
                   accessibilityRole="button"
-                  disabled={isUpdating || !commentBody.trim() || !onCommentSubmit}
+                  disabled={isSubmittingComment || !onCommentSubmit}
+                  onPressIn={handleCommentSubmit}
                   onPress={handleCommentSubmit}
-                  style={[styles.replyButton, (!commentBody.trim() || isUpdating) && styles.replyButtonDisabled]}
+                  style={[styles.replyButton, (!commentBody.trim() || isSubmittingComment) && styles.replyButtonDisabled]}
                 >
-                  <Text style={styles.replyButtonText}>Reply</Text>
+                  <Text style={styles.replyButtonText}>{isSubmittingComment ? 'Sending' : 'Reply'}</Text>
                 </Pressable>
               </View>
 
@@ -349,36 +399,46 @@ export function PostCard({
           </View>
         </View>
       </View>
-      <Modal animationType="fade" transparent visible={isComposerDocked} onRequestClose={closeDockedComposer}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          keyboardVerticalOffset={0}
-          style={styles.dockedComposerOverlay}
-        >
-          <Pressable style={styles.dockedComposerBackdrop} onPress={closeDockedComposer} />
-          <View style={styles.dockedComposer}>
+      <Modal
+        animationType="none"
+        presentationStyle="overFullScreen"
+        transparent
+        visible={isCommentComposerOpen}
+        onRequestClose={closeCommentComposer}
+      >
+        <View style={styles.keyboardComposerOverlay}>
+          <Pressable accessibilityRole="button" style={styles.keyboardComposerBackdrop} onPress={closeCommentComposer} />
+          <View
+            style={[styles.keyboardComposerWrap, { bottom: keyboardHeight }]}
+            onStartShouldSetResponder={() => true}
+          >
             <TextInput
-              ref={dockedInputRef}
+              ref={commentInputRef}
               value={commentBody}
-              onChangeText={setCommentBody}
+              onChangeText={handleCommentBodyChange}
               placeholder="Leave a short supportive reply..."
               placeholderTextColor={colors.textMuted}
               maxLength={200}
-              editable={!isUpdating && Boolean(onCommentSubmit)}
+              editable={!isSubmittingComment && Boolean(onCommentSubmit)}
               returnKeyType="send"
+              blurOnSubmit={false}
               onSubmitEditing={handleCommentSubmit}
-              style={[styles.commentInput, styles.dockedCommentInput]}
+              style={styles.keyboardCommentInput}
             />
             <Pressable
               accessibilityRole="button"
-              disabled={isUpdating || !commentBody.trim() || !onCommentSubmit}
+              disabled={isSubmittingComment || !onCommentSubmit}
+              onPressIn={handleCommentSubmit}
               onPress={handleCommentSubmit}
-              style={[styles.dockedReplyButton, (!commentBody.trim() || isUpdating) && styles.replyButtonDisabled]}
+              style={[
+                styles.keyboardReplyButton,
+                (!commentBody.trim() || isSubmittingComment) && styles.replyButtonDisabled
+              ]}
             >
-              <Text style={styles.dockedReplyButtonText}>Reply</Text>
+              <Text style={styles.keyboardReplyButtonText}>{isSubmittingComment ? 'Sending' : 'Reply'}</Text>
             </Pressable>
           </View>
-        </KeyboardAvoidingView>
+        </View>
       </Modal>
     </>
   );
@@ -663,14 +723,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.xs
   },
-  commentInput: {
-    flex: 1,
-    minWidth: 0,
-    color: colors.surface,
-    fontFamily: typography.bodyFamily,
-    fontSize: 13,
-    paddingVertical: 8
-  },
   inlineCommentTrigger: {
     flex: 1,
     minWidth: 0,
@@ -706,43 +758,55 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18
   },
-  dockedComposerOverlay: {
-    flex: 1,
-    justifyContent: 'flex-end'
+  keyboardComposerOverlay: {
+    ...StyleSheet.absoluteFillObject
   },
-  dockedComposerBackdrop: {
-    flex: 1
+  keyboardComposerBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'transparent'
   },
-  dockedComposer: {
+  keyboardComposerWrap: {
+    position: 'absolute',
+    left: spacing.sm,
+    right: spacing.sm,
     minHeight: 58,
+    borderRadius: radii.lg,
+    backgroundColor: colors.surface,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: spacing.sm,
     paddingTop: spacing.sm,
     paddingBottom: spacing.sm,
-    backgroundColor: colors.surface,
-    borderTopWidth: 1,
-    borderTopColor: colors.border
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.18,
+    shadowRadius: 18,
+    elevation: 8
   },
-  dockedCommentInput: {
-    minHeight: 40,
+  keyboardCommentInput: {
+    flex: 1,
+    minWidth: 0,
+    minHeight: 42,
     borderRadius: radii.pill,
     backgroundColor: colors.surfaceMuted,
     color: colors.text,
+    fontFamily: typography.bodyFamily,
+    fontSize: 16,
     paddingHorizontal: spacing.md,
-    paddingVertical: 9
+    paddingVertical: 8
   },
-  dockedReplyButton: {
+  keyboardReplyButton: {
+    minHeight: 46,
     borderRadius: radii.pill,
-    backgroundColor: colors.accent,
-    paddingHorizontal: 14,
-    paddingVertical: 9
+    backgroundColor: colors.text,
+    justifyContent: 'center',
+    paddingHorizontal: spacing.md
   },
-  dockedReplyButtonText: {
+  keyboardReplyButtonText: {
     color: colors.surface,
     fontFamily: typography.bodyFamily,
-    fontSize: 13,
-    fontWeight: '700'
+    fontSize: 15,
+    fontWeight: '800'
   }
 });

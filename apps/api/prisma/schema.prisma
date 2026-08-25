@@ -23,6 +23,9 @@ model User {
   sessions                  Session[]
   sentRequests              Friendship[]           @relation("friendshipRequester")
   recvRequests              Friendship[]           @relation("friendshipAddressee")
+  blocksSent                Block[]                @relation("blocker")
+  blocksReceived            Block[]                @relation("blocked")
+  postReports               PostReport[]           @relation("postReportReporter")
   activityNotifications     ActivityNotification[] @relation("activityNotificationRecipient")
   sentActivityNotifications ActivityNotification[] @relation("activityNotificationActor")
 }
@@ -53,6 +56,18 @@ model Friendship {
   @@index([requesterId, status])
 }
 
+model Block {
+  id        String   @id @default(cuid())
+  blockerId String
+  blockedId String
+  createdAt DateTime @default(now())
+  blocker   User     @relation("blocker", fields: [blockerId], references: [id], onDelete: Cascade)
+  blocked   User     @relation("blocked", fields: [blockedId], references: [id], onDelete: Cascade)
+
+  @@unique([blockerId, blockedId])
+  @@index([blockedId])
+}
+
 model Post {
   id                    String                 @id @default(cuid())
   authorId              String
@@ -66,10 +81,25 @@ model Post {
   author                User                   @relation(fields: [authorId], references: [id], onDelete: Cascade)
   comments              Comment[]
   reactions             Reaction[]
+  reports               PostReport[]
   activityNotifications ActivityNotification[]
 
   @@index([authorId, createdAt])
   @@index([kind, expiresAt])
+}
+
+model PostReport {
+  id         String   @id @default(cuid())
+  postId     String
+  reporterId String
+  reason     String
+  details    String?
+  createdAt  DateTime @default(now())
+  post       Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  reporter   User     @relation("postReportReporter", fields: [reporterId], references: [id], onDelete: Cascade)
+
+  @@index([postId])
+  @@index([reporterId, createdAt])
 }
 
 model Comment {

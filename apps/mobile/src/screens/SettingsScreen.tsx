@@ -93,6 +93,8 @@ export function SettingsScreen({ navigation }: Props) {
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.section}>
           <SettingsRow icon="person-outline" label="Your Account" onPress={() => handleComingSoon('Your Account')} />
+          <SettingsRow icon="people-outline" label="Friends" onPress={() => navigation.navigate('ProfileFriends')} />
+          <SettingsRow icon="ban-outline" label="Blocked" onPress={() => navigation.navigate('BlockedUsers')} />
           <SettingsRow icon="help-circle-outline" label="FAQs" onPress={() => handleComingSoon('FAQs')} />
           <SettingsRow icon="notifications-outline" label="Notifications" onPress={() => handleComingSoon('Notifications')} />
           <SettingsRow icon="chatbubble-ellipses-outline" label="Help" onPress={() => handleComingSoon('Help')} />

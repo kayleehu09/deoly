@@ -8,6 +8,7 @@ import { LoadingScreen } from '../components/LoadingScreen';
 import { colors, radii, spacing, typography } from '../constants/theme';
 import { useAuth } from '../hooks/useAuth';
 import { ActivityScreen } from '../screens/ActivityScreen';
+import { BlockedUsersScreen } from '../screens/BlockedUsersScreen';
 import { CreatePostCameraScreen } from '../screens/CreatePostCameraScreen';
 import { DeolyArchiveScreen } from '../screens/DeolyArchiveScreen';
 import { FriendProfileScreen } from '../screens/FriendProfileScreen';
@@ -142,6 +143,7 @@ export function AppNavigator() {
             <RootStack.Screen name="DeolyArchive" component={DeolyArchiveScreen} options={{ headerShown: false }} />
             <RootStack.Screen name="FriendProfile" component={FriendProfileScreen} options={{ headerShown: false }} />
             <RootStack.Screen name="ProfileFriends" component={ProfileFriendsScreen} options={{ headerShown: false }} />
+            <RootStack.Screen name="BlockedUsers" component={BlockedUsersScreen} options={{ headerShown: false }} />
             <RootStack.Screen name="Settings" component={SettingsScreen} options={{ headerShown: false }} />
             <RootStack.Screen
               name="PostComposer"

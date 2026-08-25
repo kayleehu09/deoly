@@ -9,6 +9,7 @@ import { friendsRouter } from "./routes/friends.js";
 import { mediaRouter } from "./routes/media.js";
 import { meRouter } from "./routes/me.js";
 import { postsRouter } from "./routes/posts.js";
+import { safetyRouter } from "./routes/safety.js";
 import { usersRouter } from "./routes/users.js";
 
 export function createApp() {
@@ -32,7 +33,7 @@ export function createApp() {
   app.use((req, res, next) => {
     const shouldLogRequest =
       shouldLogDebugRequests &&
-      ["/activity", "/auth", "/feed", "/friends", "/media", "/users"].some((path) => req.path.startsWith(path));
+      ["/activity", "/auth", "/feed", "/friends", "/media", "/safety", "/users"].some((path) => req.path.startsWith(path));
 
     if (!shouldLogRequest) {
       next();
@@ -58,6 +59,7 @@ export function createApp() {
   app.use("/feed", feedRouter);
   app.use("/media", mediaRouter);
   app.use("/posts", postsRouter);
+  app.use("/safety", safetyRouter);
   app.use("/friends", friendsRouter);
   app.use("/users", usersRouter);
 

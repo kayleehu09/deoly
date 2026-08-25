@@ -3,7 +3,6 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useState } from 'react';
 import { SafeAreaView, StyleSheet, Text, View } from 'react-native';
 
-import { AvatarPreviewModal } from '../components/AvatarPreviewModal';
 import { FeedList } from '../components/FeedList';
 import { HeartPeopleButton } from '../components/HeartPeopleButton';
 import { ReactionViewerSheet } from '../components/ReactionViewerSheet';
@@ -24,7 +23,6 @@ export function HomeScreen() {
     loadPostReactions,
     commentOnPost
   } = useAppData();
-  const [avatarPost, setAvatarPost] = useState<FeedPost | null>(null);
   const [reactionPost, setReactionPost] = useState<FeedPost | null>(null);
   const [reactionGroups, setReactionGroups] = useState<PostReactionGroup[]>([]);
   const [isLoadingReactions, setIsLoadingReactions] = useState(false);
@@ -36,7 +34,16 @@ export function HomeScreen() {
       return;
     }
 
-    navigation.navigate('FriendProfile', { userId: post.userId });
+    navigation.navigate('FriendProfile', {
+      userId: post.userId,
+      user: {
+        id: post.user.id,
+        username: post.user.username,
+        displayName: post.user.displayName,
+        profileImageUrl: post.user.profileImageUrl,
+        bio: post.user.bio
+      }
+    });
   };
 
   const handleReactionDetailsPress = async (post: FeedPost, emoji: ReactionEmoji) => {
@@ -74,20 +81,14 @@ export function HomeScreen() {
           error={loadError}
           onRefresh={refreshAppData}
           onUserPress={handleUserPress}
-          onAvatarPress={setAvatarPost}
+          onAvatarPress={handleUserPress}
+          avatarAccessibilityLabel={(post) => `Open ${post.user.displayName}'s profile`}
           onReactionPress={togglePostReaction}
           onReactionDetailsPress={handleReactionDetailsPress}
           onCommentSubmit={(post, body) => commentOnPost(post.id, body)}
           onOpenComments={(post) => navigation.navigate('PostDetail', { postId: post.id })}
         />
       </View>
-      <AvatarPreviewModal
-        displayName={avatarPost?.user.displayName ?? ''}
-        imageUri={avatarPost?.user.profileImageUrl ?? null}
-        username={avatarPost?.user.username ?? ''}
-        visible={Boolean(avatarPost)}
-        onClose={() => setAvatarPost(null)}
-      />
       <ReactionViewerSheet
         visible={Boolean(reactionPost)}
         groups={reactionGroups}
