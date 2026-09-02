@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import type { FeedPost } from "@sanctuary/shared";
+import type { FeedPost } from "@deoly/shared";
 import { AppShell } from "../../../components/app-shell";
 import { FeedPostCard } from "../../../components/feed-post-card";
 import { RequireAuth } from "../../../components/require-auth";

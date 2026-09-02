@@ -1,7 +1,7 @@
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useState } from 'react';
-import { SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Alert, SafeAreaView, StyleSheet, Text, View } from 'react-native';
 
 import { FeedList } from '../components/FeedList';
 import { HeartPeopleButton } from '../components/HeartPeopleButton';
@@ -10,6 +10,8 @@ import { colors, spacing, typography } from '../constants/theme';
 import { useAppData } from '../hooks/useAppData';
 import type { FeedPost, PostReactionGroup, ReactionEmoji } from '../types/models';
 import type { RootStackParamList } from '../types/navigation';
+
+const DELETE_FEEDBACK_MS = 1100;
 
 export function HomeScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -21,12 +23,22 @@ export function HomeScreen() {
     refreshAppData,
     togglePostReaction,
     loadPostReactions,
-    commentOnPost
+    commentOnPost,
+    deletePostById
   } = useAppData();
   const [reactionPost, setReactionPost] = useState<FeedPost | null>(null);
   const [reactionGroups, setReactionGroups] = useState<PostReactionGroup[]>([]);
   const [isLoadingReactions, setIsLoadingReactions] = useState(false);
   const [reactionError, setReactionError] = useState<string | null>(null);
+  const [deletingPostIds, setDeletingPostIds] = useState<string[]>([]);
+  const [deletedPostIds, setDeletedPostIds] = useState<string[]>([]);
+  const deleteFeedbackTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+  useEffect(() => {
+    return () => {
+      deleteFeedbackTimersRef.current.forEach((timer) => clearTimeout(timer));
+    };
+  }, []);
 
   const handleUserPress = (post: FeedPost) => {
     if (post.userId === currentUser?.id) {
@@ -61,6 +73,45 @@ export function HomeScreen() {
     }
   };
 
+  const handleDeletePost = (post: FeedPost) => {
+    if (post.userId !== currentUser?.id) {
+      return;
+    }
+
+    Alert.alert(
+      'Delete post?',
+      "This removes the post from your home feed and your friends' feeds.",
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel'
+        },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            setDeletingPostIds((postIds) => (postIds.includes(post.id) ? postIds : [...postIds, post.id]));
+
+            try {
+              await deletePostById(post.id, { refresh: false });
+              setDeletedPostIds((postIds) => (postIds.includes(post.id) ? postIds : [...postIds, post.id]));
+              const timer = setTimeout(() => {
+                void refreshAppData().finally(() => {
+                  setDeletingPostIds((postIds) => postIds.filter((postId) => postId !== post.id));
+                  setDeletedPostIds((postIds) => postIds.filter((postId) => postId !== post.id));
+                });
+              }, DELETE_FEEDBACK_MS);
+              deleteFeedbackTimersRef.current.push(timer);
+            } catch (err) {
+              setDeletingPostIds((postIds) => postIds.filter((postId) => postId !== post.id));
+              Alert.alert('Could not delete post', err instanceof Error ? err.message : 'Please try again.');
+            }
+          }
+        }
+      ]
+    );
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
@@ -87,6 +138,19 @@ export function HomeScreen() {
           onReactionDetailsPress={handleReactionDetailsPress}
           onCommentSubmit={(post, body) => commentOnPost(post.id, body)}
           onOpenComments={(post) => navigation.navigate('PostDetail', { postId: post.id })}
+          canDeletePost={(post) => post.userId === currentUser?.id}
+          onDeletePost={handleDeletePost}
+          getDeletionStatus={(post) => {
+            if (deletedPostIds.includes(post.id)) {
+              return 'deleted';
+            }
+
+            if (deletingPostIds.includes(post.id)) {
+              return 'deleting';
+            }
+
+            return undefined;
+          }}
         />
       </View>
       <ReactionViewerSheet

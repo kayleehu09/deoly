@@ -1,5 +1,5 @@
 import type { NextFunction, Request, Response } from "express";
-import type { ApiErrorShape } from "@sanctuary/shared";
+import type { ApiErrorShape } from "@deoly/shared";
 import { ZodError } from "zod";
 
 export class ApiError extends Error {

@@ -33,7 +33,7 @@ export default function LoginPage() {
     <main className="auth-layout">
       <div className="hero-panel auth-card">
         <p className="brand-kicker">Invite-only circle</p>
-        <h1 className="brand-title">Sanctuary</h1>
+        <h1 className="brand-title">Deoly</h1>
         <p className="brand-copy">
           A calm place for devotionals, prayer requests, and honest thoughts with close friends.
         </p>

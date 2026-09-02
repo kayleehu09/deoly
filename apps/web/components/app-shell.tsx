@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { clearSession, getStoredUser } from "../lib/auth-store";
 import { logout } from "../lib/api";
-import type { UserProfile } from "@sanctuary/shared";
+import type { UserProfile } from "@deoly/shared";
 
 const navItems = [
   { href: "/feed", label: "Home" },
@@ -38,7 +38,7 @@ export function AppShell({
       <header className="app-shell-header">
         <div className="app-title">
           <div className="stack" style={{ gap: 6 }}>
-            <span className="eyebrow">Sanctuary Social</span>
+            <span className="eyebrow">Deoly</span>
             <div>
               <h1 className="section-title">{title}</h1>
               <p className="subtle" style={{ margin: "4px 0 0" }}>

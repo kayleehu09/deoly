@@ -5,7 +5,7 @@ services:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_DB: sanctuary_social
+      POSTGRES_DB: deoly
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:

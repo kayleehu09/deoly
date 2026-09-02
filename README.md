@@ -51,7 +51,6 @@ Still needed before private beta:
 - confirm real R2 private-photo access rules before real user photos
 - create a clean Prisma migration baseline before private beta
 - make a final pass on disappearing deoly/archive behavior
-- clean up remaining naming drift from the old `sanctuary` name in package metadata/scripts
 
 ## Development Setup
 

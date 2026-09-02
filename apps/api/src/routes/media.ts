@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import type { CreateMediaUploadResponse } from "@sanctuary/shared";
+import type { CreateMediaUploadResponse } from "@deoly/shared";
 import {
   ALLOWED_IMAGE_CONTENT_TYPES,
   MAX_IMAGE_UPLOAD_BYTES,

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getMe } from "../lib/api";
 import { clearSession, getSessionToken, setSession } from "../lib/auth-store";
-import type { UserProfile } from "@sanctuary/shared";
+import type { UserProfile } from "@deoly/shared";
 
 export function RequireAuth({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -34,7 +34,7 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
     return (
       <main className="auth-layout">
         <div className="hero-panel auth-card">
-          <p className="brand-kicker">Sanctuary Social</p>
+          <p className="brand-kicker">Deoly</p>
           <h1 className="brand-title" style={{ fontSize: "2.4rem" }}>
             Loading
           </h1>

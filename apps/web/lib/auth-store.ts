@@ -1,7 +1,7 @@
 "use client";
 
-const TOKEN_KEY = "sanctuary.session.token";
-const USER_KEY = "sanctuary.session.user";
+const TOKEN_KEY = "deoly.session.token";
+const USER_KEY = "deoly.session.user";
 
 export function getSessionToken() {
   if (typeof window === "undefined") {

@@ -7,7 +7,7 @@ import type {
   FriendsListResponse,
   SearchUsersResponse,
   UserProfile
-} from "@sanctuary/shared";
+} from "@deoly/shared";
 import { getSessionToken } from "./auth-store";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";

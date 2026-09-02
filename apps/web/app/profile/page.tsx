@@ -3,7 +3,7 @@
 import { AppShell } from "../../components/app-shell";
 import { RequireAuth } from "../../components/require-auth";
 import { getStoredUser } from "../../lib/auth-store";
-import type { UserProfile } from "@sanctuary/shared";
+import type { UserProfile } from "@deoly/shared";
 
 export default function ProfilePage() {
   const user = getStoredUser<UserProfile>();

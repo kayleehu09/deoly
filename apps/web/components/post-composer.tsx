@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { POST_MAX_LENGTH, POST_VISIBILITIES, type PostVisibility } from "@sanctuary/shared";
+import { POST_MAX_LENGTH, POST_VISIBILITIES, type PostVisibility } from "@deoly/shared";
 import { createPost } from "../lib/api";
 
 const privacyOptions: Array<{ value: PostVisibility; label: string }> = [

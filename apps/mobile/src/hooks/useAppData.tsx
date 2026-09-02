@@ -12,6 +12,7 @@ import {
   addComment,
   addReaction,
   createPost,
+  deletePost,
   getHomeFeedPosts,
   getPermanentPostsForUser,
   getPostReactions,
@@ -39,6 +40,7 @@ type AppDataContextValue = {
   togglePostReaction: (post: FeedPost, emoji: ReactionEmoji) => Promise<void>;
   loadPostReactions: (postId: string, emoji: ReactionEmoji) => Promise<PostReactionGroup[]>;
   commentOnPost: (postId: string, body: string) => Promise<void>;
+  deletePostById: (postId: string, options?: { refresh?: boolean }) => Promise<void>;
   blockUserById: (userId: string) => Promise<void>;
 };
 
@@ -193,6 +195,21 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       }
 
       await addComment(postId, body, auth.session.token);
+      await loadAppData();
+    },
+    deletePostById: async (postId, options = {}) => {
+      if (!auth) {
+        return;
+      }
+
+      await deletePost(postId, auth.session.token);
+
+      if (options.refresh === false) {
+        return;
+      }
+
+      setFeedPosts((currentPosts) => currentPosts.filter((post) => post.id !== postId));
+      setProfilePosts((currentPosts) => currentPosts.filter((post) => post.id !== postId));
       await loadAppData();
     },
     blockUserById: async (userId) => {

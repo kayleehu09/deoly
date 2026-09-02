@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Sanctuary Social",
+  title: "Deoly",
   description: "A clean social space for devotionals, prayer requests, and honest encouragement."
 };
 

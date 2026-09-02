@@ -4,5 +4,5 @@ import { config } from "./config.js";
 const app = createApp();
 
 app.listen(config.port, () => {
-  console.log(`Sanctuary API running on http://localhost:${config.port}`);
+  console.log(`Deoly API running on http://localhost:${config.port}`);
 });

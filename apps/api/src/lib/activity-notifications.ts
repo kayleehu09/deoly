@@ -1,4 +1,4 @@
-import type { ActivityNotification as ApiActivityNotification, AllowedReactionEmoji } from "@sanctuary/shared";
+import type { ActivityNotification as ApiActivityNotification, AllowedReactionEmoji } from "@deoly/shared";
 import type { ActivityNotificationType } from "@prisma/client";
 import { prisma } from "./prisma.js";
 

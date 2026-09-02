@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { FriendsListItem, SearchUserResult } from "@sanctuary/shared";
+import type { FriendsListItem, SearchUserResult } from "@deoly/shared";
 import {
   acceptFriendRequest,
   declineFriendRequest,

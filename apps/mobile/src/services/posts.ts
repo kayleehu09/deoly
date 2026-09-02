@@ -239,6 +239,16 @@ export async function removeReaction(postId: string, emoji: ReactionEmoji, token
   );
 }
 
+export async function deletePost(postId: string, token: string) {
+  await apiFetch<void>(
+    `/posts/${postId}`,
+    {
+      method: 'DELETE'
+    },
+    token
+  );
+}
+
 export async function addComment(postId: string, body: string, token: string) {
   await apiFetch<void>(
     `/posts/${postId}/comments`,

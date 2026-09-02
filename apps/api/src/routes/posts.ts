@@ -8,7 +8,7 @@ import {
   POST_VISIBILITIES,
   type AllowedReactionEmoji,
   type PostReactionGroup
-} from "@sanctuary/shared";
+} from "@deoly/shared";
 import { createActivityNotification } from "../lib/activity-notifications.js";
 import { getBlockedUserIds } from "../lib/blocks.js";
 import { ApiError } from "../lib/errors.js";
@@ -263,6 +263,36 @@ postsRouter.get("/:id", requireAuth, async (req, res, next) => {
     res.json({
       post: await toFeedPost(post as FeedPostRecord, viewerId)
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+postsRouter.delete("/:id", requireAuth, async (req, res, next) => {
+  try {
+    const viewerId = req.auth!.user.id;
+    const postId = String(req.params.id);
+    const post = await prisma.post.findUnique({
+      where: {
+        id: postId
+      }
+    });
+
+    if (!post) {
+      throw new ApiError(404, "POST_NOT_FOUND", "Post not found.");
+    }
+
+    if (post.authorId !== viewerId) {
+      throw new ApiError(403, "POST_FORBIDDEN", "You can only delete your own posts.");
+    }
+
+    await prisma.post.delete({
+      where: {
+        id: postId
+      }
+    });
+
+    res.status(204).send();
   } catch (error) {
     next(error);
   }

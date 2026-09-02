@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import { DISPLAY_NAME_MAX_LENGTH, USERNAME_MAX_LENGTH } from "@sanctuary/shared";
+import { DISPLAY_NAME_MAX_LENGTH, USERNAME_MAX_LENGTH } from "@deoly/shared";
 import { ApiError } from "../lib/errors.js";
 import { createSession, deleteSession, hashPassword, verifyPassword } from "../lib/auth.js";
 import { prisma } from "../lib/prisma.js";

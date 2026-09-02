@@ -28,6 +28,8 @@ type PostCardProps = {
   onReactionDetailsPress?: (post: FeedPost, emoji: ReactionEmoji) => void;
   onCommentSubmit?: (post: FeedPost, body: string) => Promise<void>;
   onOpenComments?: (post: FeedPost) => void;
+  onDeletePress?: (post: FeedPost) => void;
+  deletionStatus?: 'deleting' | 'deleted';
   showAllComments?: boolean;
 };
 
@@ -62,6 +64,8 @@ export function PostCard({
   onReactionDetailsPress,
   onCommentSubmit,
   onOpenComments,
+  onDeletePress,
+  deletionStatus,
   showAllComments = false
 }: PostCardProps) {
   const [commentBody, setCommentBody] = useState('');
@@ -82,6 +86,7 @@ export function PostCard({
   const avatarLabel = typeof avatarAccessibilityLabel === 'function'
     ? avatarAccessibilityLabel(post)
     : avatarAccessibilityLabel;
+  const isDeletePending = Boolean(deletionStatus);
 
   const renderReactionIcon = (emoji: ReactionEmoji, isActive: boolean) => {
     const materialIconName = MATERIAL_REACTION_ICON_BY_EMOJI[emoji];
@@ -110,7 +115,7 @@ export function PostCard({
   };
 
   const handleReactionPress = async (emoji: ReactionEmoji) => {
-    if (!onReactionPress) {
+    if (isDeletePending || !onReactionPress) {
       return;
     }
 
@@ -128,7 +133,7 @@ export function PostCard({
   const handleCommentSubmit = async () => {
     const trimmedBody = commentBodyRef.current.trim();
 
-    if (isUpdating || isSubmittingCommentRef.current || !trimmedBody || !onCommentSubmit) {
+    if (isDeletePending || isUpdating || isSubmittingCommentRef.current || !trimmedBody || !onCommentSubmit) {
       return;
     }
 
@@ -158,7 +163,7 @@ export function PostCard({
   };
 
   const openCommentComposer = () => {
-    if (isSubmittingComment || !onCommentSubmit) {
+    if (isDeletePending || isSubmittingComment || !onCommentSubmit) {
       return;
     }
 
@@ -255,6 +260,22 @@ export function PostCard({
                   <Text style={styles.meta}>{formatRelativeTime(post.createdAt)}</Text>
                 </Pressable>
               </View>
+              {onDeletePress ? (
+                <Pressable
+                  accessibilityLabel="Delete this post"
+                  accessibilityRole="button"
+                  onPress={() => onDeletePress(post)}
+                  disabled={isDeletePending}
+                  style={[styles.deleteButton, isDeletePending && styles.deleteButtonDisabled]}
+                >
+                  <Ionicons
+                    name={deletionStatus === 'deleted' ? 'checkmark-circle-outline' : 'trash-outline'}
+                    size={20}
+                    color={colors.surface}
+                    style={styles.railIcon}
+                  />
+                </Pressable>
+              ) : null}
             </View>
 
             <View style={styles.mediaMeta}>
@@ -283,7 +304,7 @@ export function PostCard({
                               accessibilityLabel={`${isActive ? 'Remove' : 'Add'} ${emoji} reaction`}
                               accessibilityRole="button"
                               accessibilityState={{ selected: isActive }}
-                              disabled={isUpdating || !onReactionPress}
+                              disabled={isDeletePending || isUpdating || !onReactionPress}
                               onPress={() => handleReactionPress(emoji)}
                               style={styles.reactionIconButton}
                             >
@@ -292,7 +313,7 @@ export function PostCard({
                             <Pressable
                               accessibilityLabel={`See who reacted with ${emoji}`}
                               accessibilityRole="button"
-                              disabled={count === 0}
+                              disabled={isDeletePending || count === 0}
                               onPress={() => onReactionDetailsPress?.(post, emoji)}
                               style={styles.reactionCountButton}
                             >
@@ -309,6 +330,7 @@ export function PostCard({
                   <Pressable
                     accessibilityLabel={isReactionRailExpanded ? 'Collapse reactions' : 'See all reactions'}
                     accessibilityRole="button"
+                    disabled={isDeletePending}
                     onPress={() => setIsReactionRailExpanded((isExpanded) => !isExpanded)}
                     style={styles.generalReactionButton}
                   >
@@ -363,7 +385,7 @@ export function PostCard({
               ) : null}
 
               {!showAllComments && onOpenComments ? (
-                <Pressable accessibilityRole="button" onPress={() => onOpenComments(post)}>
+                <Pressable accessibilityRole="button" disabled={isDeletePending} onPress={() => onOpenComments(post)}>
                   <Text style={styles.viewThreadText}>{commentThreadLabel}</Text>
                 </Pressable>
               ) : null}
@@ -372,7 +394,7 @@ export function PostCard({
                 <Pressable
                   accessibilityLabel="Write a supportive reply"
                   accessibilityRole="button"
-                  disabled={isSubmittingComment || !onCommentSubmit}
+                  disabled={isDeletePending || isSubmittingComment || !onCommentSubmit}
                   onPress={openCommentComposer}
                   style={styles.inlineCommentTrigger}
                 >
@@ -385,7 +407,7 @@ export function PostCard({
                 </Pressable>
                 <Pressable
                   accessibilityRole="button"
-                  disabled={isSubmittingComment || !onCommentSubmit}
+                  disabled={isDeletePending || isSubmittingComment || !onCommentSubmit}
                   onPressIn={handleCommentSubmit}
                   onPress={handleCommentSubmit}
                   style={[styles.replyButton, (!commentBody.trim() || isSubmittingComment) && styles.replyButtonDisabled]}
@@ -396,6 +418,21 @@ export function PostCard({
 
               {interactionError ? <Text style={styles.interactionError}>{interactionError}</Text> : null}
             </View>
+
+            {deletionStatus ? (
+              <View style={styles.deletedOverlay} pointerEvents="auto">
+                <View style={styles.deletedMessage}>
+                  <Ionicons
+                    name={deletionStatus === 'deleted' ? 'checkmark-circle-outline' : 'hourglass-outline'}
+                    size={28}
+                    color={colors.surface}
+                  />
+                  <Text style={styles.deletedTitle}>
+                    {deletionStatus === 'deleted' ? 'Post deleted' : 'Deleting...'}
+                  </Text>
+                </View>
+              </View>
+            ) : null}
           </View>
         </View>
       </View>
@@ -493,6 +530,17 @@ const styles = StyleSheet.create({
   userTextButton: {
     flex: 1,
     minWidth: 0
+  },
+  deleteButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(17, 17, 17, 0.28)'
+  },
+  deleteButtonDisabled: {
+    opacity: 0.72
   },
   displayName: {
     color: colors.surface,
@@ -757,6 +805,26 @@ const styles = StyleSheet.create({
     fontFamily: typography.bodyFamily,
     fontSize: 13,
     lineHeight: 18
+  },
+  deletedOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.54)'
+  },
+  deletedMessage: {
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md
+  },
+  deletedTitle: {
+    color: colors.surface,
+    fontFamily: typography.titleFamily,
+    fontSize: 22,
+    fontWeight: '800',
+    textAlign: 'center'
   },
   keyboardComposerOverlay: {
     ...StyleSheet.absoluteFillObject

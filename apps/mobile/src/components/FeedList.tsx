@@ -17,6 +17,9 @@ type FeedListProps = {
   onReactionDetailsPress?: (post: FeedPost, emoji: ReactionEmoji) => void;
   onCommentSubmit?: (post: FeedPost, body: string) => Promise<void>;
   onOpenComments?: (post: FeedPost) => void;
+  canDeletePost?: (post: FeedPost) => boolean;
+  onDeletePost?: (post: FeedPost) => void;
+  getDeletionStatus?: (post: FeedPost) => 'deleting' | 'deleted' | undefined;
 };
 
 export function FeedList({
@@ -30,7 +33,10 @@ export function FeedList({
   onReactionPress,
   onReactionDetailsPress,
   onCommentSubmit,
-  onOpenComments
+  onOpenComments,
+  canDeletePost,
+  onDeletePost,
+  getDeletionStatus
 }: FeedListProps) {
   const [feedHeight, setFeedHeight] = useState(0);
 
@@ -69,6 +75,8 @@ export function FeedList({
           onReactionDetailsPress={onReactionDetailsPress}
           onCommentSubmit={onCommentSubmit}
           onOpenComments={onOpenComments}
+          onDeletePress={canDeletePost?.(item) ? onDeletePost : undefined}
+          deletionStatus={getDeletionStatus?.(item)}
         />
       )}
       showsVerticalScrollIndicator={false}

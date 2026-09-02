@@ -1,5 +1,5 @@
-import type { AllowedReactionEmoji, FeedComment, FeedPost, UserProfile } from "@sanctuary/shared";
-import { ALLOWED_REACTION_EMOJIS } from "@sanctuary/shared";
+import type { AllowedReactionEmoji, FeedComment, FeedPost, UserProfile } from "@deoly/shared";
+import { ALLOWED_REACTION_EMOJIS } from "@deoly/shared";
 import { createPostImageReadUrl } from "./storage.js";
 
 export function toUserProfile(user: {

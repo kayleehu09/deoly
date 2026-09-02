@@ -214,6 +214,30 @@ vi.mock("../lib/prisma.js", () => {
       author: { id: "ckvvy8r2k000101l68v2ud6mm", displayName: "Mia Rose", username: "miaprays", avatarUrl: null },
       reactions: [],
       comments: []
+    },
+    {
+      id: "post_delete_target",
+      authorId: "user_ava",
+      body: "A throwaway post for deletion.",
+      imageObjectKey: "users/user_ava/posts/delete-target.jpg",
+      kind: "DEOLY",
+      visibility: "FRIENDS",
+      expiresAt: new Date(now.getTime() - 8 * 24 * hour),
+      createdAt: new Date(now.getTime() - 9 * 24 * hour),
+      updatedAt: new Date(now.getTime() - 9 * 24 * hour),
+      author: { id: "user_ava", displayName: "Ava Grace", username: "avafaith", avatarUrl: null },
+      reactions: [{ emoji: "❤️", userId: "ckvvy6f5e000001l6b9fh9a3x" }],
+      comments: [
+        {
+          id: "comment_delete_target",
+          postId: "post_delete_target",
+          authorId: "ckvvy6f5e000001l6b9fh9a3x",
+          body: "This should go away with the post.",
+          createdAt: new Date(now.getTime() - 9 * 24 * hour),
+          updatedAt: new Date(now.getTime() - 9 * 24 * hour),
+          author: { id: "ckvvy6f5e000001l6b9fh9a3x", displayName: "Noah James", username: "noahlight", avatarUrl: null }
+        }
+      ]
     }
   ];
   const activityNotifications: Array<{
@@ -490,7 +514,12 @@ vi.mock("../lib/prisma.js", () => {
           ...data,
           imageObjectKey: data.imageObjectKey ?? null
         })),
-        findUnique: vi.fn(async ({ where }) => posts.find((post) => post.id === where.id) ?? null)
+        findUnique: vi.fn(async ({ where }) => posts.find((post) => post.id === where.id) ?? null),
+        delete: vi.fn(async ({ where }) => {
+          const index = posts.findIndex((post) => post.id === where.id);
+          const [deleted] = index >= 0 ? posts.splice(index, 1) : [];
+          return deleted;
+        })
       },
       reaction: {
         findUnique: vi.fn(async ({ where }) => {
@@ -616,7 +645,7 @@ vi.mock("../lib/prisma.js", () => {
   };
 });
 
-describe("Sanctuary API", () => {
+describe("Deoly API", () => {
   const app = createApp();
   let token = "";
   let noahToken = "";
@@ -831,6 +860,21 @@ describe("Sanctuary API", () => {
     expect(response.status).toBe(200);
     expect(response.body.post.id).toBe("post_self_expired");
     expect(response.body.post.kind).toBe("deoly");
+  });
+
+  it("prevents users from deleting someone else's post", async () => {
+    const response = await request(app).delete("/posts/post_1").set("authorization", `Bearer ${token}`);
+
+    expect(response.status).toBe(403);
+    expect(response.body.error.code).toBe("POST_FORBIDDEN");
+  });
+
+  it("lets post owners delete their own posts", async () => {
+    const response = await request(app).delete("/posts/post_delete_target").set("authorization", `Bearer ${token}`);
+    const deletedPost = await request(app).get("/posts/post_delete_target").set("authorization", `Bearer ${token}`);
+
+    expect(response.status).toBe(204);
+    expect(deletedPost.status).toBe(404);
   });
 
   it("lets post owners see who reacted to their post", async () => {

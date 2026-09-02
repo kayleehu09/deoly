@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { FeedPost } from "@sanctuary/shared";
+import type { FeedPost } from "@deoly/shared";
 import Link from "next/link";
 import { AppShell } from "../../components/app-shell";
 import { FeedPostCard } from "../../components/feed-post-card";

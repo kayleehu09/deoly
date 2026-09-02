@@ -1,5 +1,5 @@
 import Constants from 'expo-constants';
-import type { ApiErrorShape } from '@sanctuary/shared';
+import type { ApiErrorShape } from '@deoly/shared';
 
 export type AuthSession = {
   token: string;

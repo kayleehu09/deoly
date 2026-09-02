@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ALLOWED_REACTION_EMOJIS, COMMENT_MAX_LENGTH, type FeedPost } from "@sanctuary/shared";
+import { ALLOWED_REACTION_EMOJIS, COMMENT_MAX_LENGTH, type FeedPost } from "@deoly/shared";
 import { addComment, addReaction, removeReaction } from "../lib/api";
 import { formatTimestamp, timeAgo } from "../lib/format";
 
