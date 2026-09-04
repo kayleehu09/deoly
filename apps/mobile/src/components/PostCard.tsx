@@ -592,7 +592,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceMuted
   },
   mediaScrim: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0, 0, 0, 0.08)'
   },
   mediaTopGradient: {
@@ -624,7 +624,7 @@ const styles = StyleSheet.create({
     gap: spacing.md
   },
   textPostPanel: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     justifyContent: 'center',
     backgroundColor: '#111111',
     paddingHorizontal: spacing.md,
@@ -807,7 +807,7 @@ const styles = StyleSheet.create({
     lineHeight: 18
   },
   deletedOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     zIndex: 4,
     alignItems: 'center',
     justifyContent: 'center',
@@ -827,10 +827,10 @@ const styles = StyleSheet.create({
     textAlign: 'center'
   },
   keyboardComposerOverlay: {
-    ...StyleSheet.absoluteFillObject
+    ...StyleSheet.absoluteFill
   },
   keyboardComposerBackdrop: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'transparent'
   },
   keyboardComposerWrap: {

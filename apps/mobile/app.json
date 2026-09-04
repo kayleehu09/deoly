@@ -27,7 +27,9 @@
           "cameraPermission": "Allow Deoly to open your camera so you can share devotional moments."
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-font",
+      "expo-status-bar"
     ]
   }
 }
