@@ -1,16 +1,53 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { colors, radii, spacing, typography } from '../constants/theme';
+import { useAppData } from '../hooks/useAppData';
+import type { FeedPost } from '../types/models';
 import type { RootStackParamList } from '../types/navigation';
+import { getLatestDailyDeolies } from '../utils/postUtils';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'DeolyArchive'>;
 
-const weekDays = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
-const calendarDays = Array.from({ length: 31 }, (_, index) => index + 1);
+const MEMORY_PLACEHOLDER_COUNT = 12;
+
+function formatMemoryDate(dateString: string) {
+  return new Date(dateString).toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric'
+  });
+}
+
+function MemoryTile({ post }: { post: FeedPost }) {
+  return (
+    <View style={styles.memoryTile}>
+      {post.imageUrl ? (
+        <Image source={{ uri: post.imageUrl }} style={styles.memoryImage} />
+      ) : (
+        <View style={styles.memoryTextTile}>
+          <Text style={styles.memoryCaption} numberOfLines={4}>
+            {post.caption || 'Deoly'}
+          </Text>
+        </View>
+      )}
+      <View style={styles.memoryMeta}>
+        <Text style={styles.memoryDate}>{formatMemoryDate(post.createdAt)}</Text>
+        {post.caption ? (
+          <Text style={styles.memoryCaptionPreview} numberOfLines={2}>
+            {post.caption}
+          </Text>
+        ) : null}
+      </View>
+    </View>
+  );
+}
 
 export function DeolyArchiveScreen({ navigation }: Props) {
+  const { currentUser, feedPosts } = useAppData();
+  const userDeolies = currentUser ? getLatestDailyDeolies(feedPosts, currentUser.id) : [];
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
@@ -28,23 +65,19 @@ export function DeolyArchiveScreen({ navigation }: Props) {
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Text style={styles.monthTitle}>July 2026</Text>
-        <View style={styles.weekRow}>
-          {weekDays.map((day) => (
-            <Text style={styles.weekDay} key={day}>{day}</Text>
+        <Text style={styles.sectionTitle}>Recent deolies</Text>
+        <View style={styles.memoriesGrid}>
+          {userDeolies.map((post) => (
+            <MemoryTile post={post} key={post.id} />
           ))}
-        </View>
-        <View style={styles.calendarGrid}>
-          {calendarDays.map((day) => (
-            <View style={styles.dayTile} key={day}>
-              <View style={[styles.dayGlow, day % 3 === 0 ? styles.dayGlowAlt : null]} />
-              <Text style={styles.dayNumber}>{day}</Text>
+          {Array.from({ length: MEMORY_PLACEHOLDER_COUNT }, (_, index) => (
+            <View style={styles.memoryPlaceholderTile} key={`memory-placeholder-${index}`}>
+              <View style={[styles.memoryPlaceholderGlow, index % 3 === 0 ? styles.memoryPlaceholderGlowAlt : null]} />
+              <Ionicons name="image-outline" size={24} color="rgba(255, 255, 255, 0.58)" />
+              <Text style={styles.memoryPlaceholderText}>Empty</Text>
             </View>
           ))}
         </View>
-        <Text style={styles.archiveNote}>
-          Deoly history will fill this calendar once archive storage is ready.
-        </Text>
       </ScrollView>
     </SafeAreaView>
   );
@@ -84,59 +117,85 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xl,
     gap: spacing.md
   },
-  monthTitle: {
+  sectionTitle: {
     color: colors.surface,
     fontFamily: typography.titleFamily,
     fontSize: 22,
     fontWeight: '800'
   },
-  weekRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between'
-  },
-  weekDay: {
-    width: '14.2%',
-    color: 'rgba(255, 255, 255, 0.72)',
-    fontFamily: typography.bodyFamily,
-    fontSize: 12,
-    fontWeight: '800',
-    textAlign: 'center'
-  },
-  calendarGrid: {
+  memoriesGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 6
+    gap: spacing.sm
   },
-  dayTile: {
-    width: '12.5%',
+  memoryTile: {
+    width: '48%',
+    minHeight: 220,
+    borderRadius: radii.sm,
+    backgroundColor: '#191919',
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)'
+  },
+  memoryImage: {
+    width: '100%',
+    aspectRatio: 1,
+    backgroundColor: '#252525'
+  },
+  memoryTextTile: {
+    width: '100%',
+    aspectRatio: 1,
+    padding: spacing.md,
+    justifyContent: 'center',
+    backgroundColor: '#252525'
+  },
+  memoryMeta: {
+    padding: spacing.sm,
+    gap: 5
+  },
+  memoryDate: {
+    color: 'rgba(255, 255, 255, 0.68)',
+    fontFamily: typography.bodyFamily,
+    fontSize: 13,
+    lineHeight: 18
+  },
+  memoryCaption: {
+    color: colors.surface,
+    fontFamily: typography.bodyFamily,
+    fontSize: 14,
+    lineHeight: 20
+  },
+  memoryCaptionPreview: {
+    color: colors.surface,
+    fontFamily: typography.bodyFamily,
+    fontSize: 14,
+    lineHeight: 20
+  },
+  memoryPlaceholderTile: {
+    width: '31%',
     aspectRatio: 0.74,
     borderRadius: radii.sm,
     backgroundColor: '#191919',
     overflow: 'hidden',
+    alignItems: 'center',
     justifyContent: 'center',
-    alignItems: 'center'
+    gap: spacing.xs
   },
-  dayGlow: {
+  memoryPlaceholderGlow: {
     position: 'absolute',
     width: 54,
     height: 54,
     borderRadius: 27,
-    backgroundColor: 'rgba(200, 169, 106, 0.28)'
+    backgroundColor: 'rgba(200, 169, 106, 0.24)'
   },
-  dayGlowAlt: {
-    backgroundColor: 'rgba(255, 255, 255, 0.18)'
+  memoryPlaceholderGlowAlt: {
+    backgroundColor: 'rgba(255, 255, 255, 0.16)'
   },
-  dayNumber: {
-    color: colors.surface,
-    fontFamily: typography.titleFamily,
-    fontSize: 18,
-    fontWeight: '800'
-  },
-  archiveNote: {
+  memoryPlaceholderText: {
     color: 'rgba(255, 255, 255, 0.68)',
     fontFamily: typography.bodyFamily,
-    fontSize: 13,
-    lineHeight: 19
+    fontSize: 12,
+    fontWeight: '700'
   },
   pressed: {
     opacity: 0.72

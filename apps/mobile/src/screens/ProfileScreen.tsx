@@ -17,12 +17,14 @@ import { colors, radii, spacing, typography } from '../constants/theme';
 import { useAppData } from '../hooks/useAppData';
 import { useAuth } from '../hooks/useAuth';
 import { getFriends, type FriendListItem } from '../services/friends';
+import type { FeedPost } from '../types/models';
 import type { RootStackParamList } from '../types/navigation';
+import { getLatestDailyDeolies } from '../utils/postUtils';
 
 type ProfileTab = 'deolies' | 'posts';
 
 const FRIENDS_TIMEOUT_MS = 12000;
-const recentDeolyDays = ['Today', 'Tue', 'Mon', 'Sun', 'Sat', 'Fri', 'Thu'];
+const RECENT_DEOLY_LIMIT = 7;
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string) {
   let timeout: ReturnType<typeof setTimeout>;
@@ -66,7 +68,31 @@ function ProfileStat({
   return <View style={styles.stat}>{content}</View>;
 }
 
-function RecentDeoliesStrip({ onSeeMore }: { onSeeMore: () => void }) {
+function formatDeolyDay(dateString: string) {
+  const postDate = new Date(dateString);
+  const today = new Date();
+
+  if (postDate.toDateString() === today.toDateString()) {
+    return 'Today';
+  }
+
+  return postDate.toLocaleDateString(undefined, { weekday: 'short' });
+}
+
+function formatDeolyDate(dateString: string) {
+  return new Date(dateString).toLocaleDateString(undefined, { day: 'numeric' });
+}
+
+function RecentDeoliesStrip({
+  posts,
+  onSeeMore
+}: {
+  posts: FeedPost[];
+  onSeeMore: () => void;
+}) {
+  const recentPosts = posts.slice(0, RECENT_DEOLY_LIMIT);
+  const placeholderCount = Math.max(0, RECENT_DEOLY_LIMIT - recentPosts.length);
+
   return (
     <View style={styles.deoliesPanel}>
       <View style={styles.deoliesHeader}>
@@ -78,11 +104,28 @@ function RecentDeoliesStrip({ onSeeMore }: { onSeeMore: () => void }) {
         </Pressable>
       </View>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.deolyStrip}>
-        {recentDeolyDays.map((day, index) => (
-          <View style={styles.deolyTile} key={day}>
+        {recentPosts.map((post) => (
+          <View style={styles.deolyTile} key={post.id}>
+            {post.imageUrl ? (
+              <Image source={{ uri: post.imageUrl }} style={styles.deolyImage} />
+            ) : (
+              <View style={styles.deolyTextTile}>
+                <Text style={styles.deolyCaption} numberOfLines={3}>
+                  {post.caption || 'Deoly'}
+                </Text>
+              </View>
+            )}
+            <View style={styles.deolyDateBadge}>
+              <Text style={styles.deolyDay}>{formatDeolyDay(post.createdAt)}</Text>
+              <Text style={styles.deolyDate}>{formatDeolyDate(post.createdAt)}</Text>
+            </View>
+          </View>
+        ))}
+        {Array.from({ length: placeholderCount }, (_, index) => (
+          <View style={[styles.deolyTile, styles.deolyPlaceholderTile]} key={`placeholder-${index}`}>
             <View style={[styles.deolyTileGlow, index % 2 === 0 ? styles.deolyTileGlowAlt : null]} />
-            <Text style={styles.deolyDay}>{day}</Text>
-            <Text style={styles.deolyDate}>{index + 1}</Text>
+            <Text style={styles.deolyPlaceholderDay}>{recentPosts.length === 0 && index === 0 ? 'Today' : 'Empty'}</Text>
+            <Text style={styles.deolyPlaceholderDate}>{recentPosts.length + index + 1}</Text>
           </View>
         ))}
       </ScrollView>
@@ -101,13 +144,16 @@ export function ProfileScreen() {
   const [activeTab, setActiveTab] = useState<ProfileTab>('deolies');
 
   const acceptedFriends = friends.filter((item) => item.direction === 'accepted' && item.status === 'accepted');
-  const deolyCount = useMemo(() => {
+  const userDeolies = useMemo(() => {
     if (!currentUser) {
-      return 0;
+      return [];
     }
 
-    return feedPosts.filter((post) => post.userId === currentUser.id && !post.isPermanent).length;
+    return getLatestDailyDeolies(feedPosts, currentUser.id);
   }, [currentUser, feedPosts]);
+  const deolyCount = useMemo(() => {
+    return userDeolies.length;
+  }, [userDeolies]);
 
   const refreshFriends = useCallback(async () => {
     if (!token) {
@@ -207,7 +253,7 @@ export function ProfileScreen() {
         </View>
 
         {activeTab === 'deolies' ? (
-          <RecentDeoliesStrip onSeeMore={() => navigation.navigate('DeolyArchive')} />
+          <RecentDeoliesStrip posts={userDeolies} onSeeMore={() => navigation.navigate('DeolyArchive')} />
         ) : (
           <View style={styles.postsSection}>
             {profilePosts.length === 0 ? (
@@ -402,8 +448,28 @@ const styles = StyleSheet.create({
     borderRadius: radii.sm,
     backgroundColor: '#171717',
     overflow: 'hidden',
-    justifyContent: 'space-between',
-    padding: spacing.sm
+    alignItems: 'stretch'
+  },
+  deolyImage: {
+    ...StyleSheet.absoluteFill,
+    width: '100%',
+    height: '100%'
+  },
+  deolyTextTile: {
+    flex: 1,
+    padding: spacing.sm,
+    justifyContent: 'center',
+    backgroundColor: '#191919'
+  },
+  deolyCaption: {
+    color: colors.surface,
+    fontFamily: typography.bodyFamily,
+    fontSize: 12,
+    lineHeight: 16
+  },
+  deolyPlaceholderTile: {
+    padding: spacing.sm,
+    justifyContent: 'space-between'
   },
   deolyTileGlow: {
     position: 'absolute',
@@ -419,16 +485,40 @@ const styles = StyleSheet.create({
     top: 52,
     backgroundColor: 'rgba(255, 255, 255, 0.18)'
   },
+  deolyDateBadge: {
+    position: 'absolute',
+    left: spacing.xs,
+    right: spacing.xs,
+    bottom: spacing.xs,
+    paddingHorizontal: spacing.xs,
+    paddingVertical: 5,
+    borderRadius: radii.sm,
+    backgroundColor: 'rgba(0, 0, 0, 0.58)',
+    alignSelf: 'stretch'
+  },
   deolyDay: {
     color: colors.surface,
     fontFamily: typography.bodyFamily,
     fontSize: 12,
     fontWeight: '400'
   },
-  deolyDate: {
+  deolyPlaceholderDay: {
+    color: colors.surface,
+    fontFamily: typography.bodyFamily,
+    fontSize: 12,
+    fontWeight: '400'
+  },
+  deolyPlaceholderDate: {
     color: colors.surface,
     fontFamily: typography.titleFamily,
     fontSize: 28,
+    fontWeight: '400',
+    textAlign: 'right'
+  },
+  deolyDate: {
+    color: colors.surface,
+    fontFamily: typography.titleFamily,
+    fontSize: 22,
     fontWeight: '400',
     textAlign: 'right'
   },
