@@ -19,7 +19,7 @@ import { useAuth } from '../hooks/useAuth';
 import { getFriends, type FriendListItem } from '../services/friends';
 import type { FeedPost } from '../types/models';
 import type { RootStackParamList } from '../types/navigation';
-import { getLatestDailyDeolies } from '../utils/postUtils';
+import { getLatestDailyDeolies, getLocalDateKey } from '../utils/postUtils';
 
 type ProfileTab = 'deolies' | 'posts';
 
@@ -68,19 +68,33 @@ function ProfileStat({
   return <View style={styles.stat}>{content}</View>;
 }
 
-function formatDeolyDay(dateString: string) {
-  const postDate = new Date(dateString);
+function formatDeolyDay(date: Date) {
   const today = new Date();
 
-  if (postDate.toDateString() === today.toDateString()) {
+  if (date.toDateString() === today.toDateString()) {
     return 'Today';
   }
 
-  return postDate.toLocaleDateString(undefined, { weekday: 'short' });
+  return date.toLocaleDateString(undefined, { weekday: 'short' });
 }
 
-function formatDeolyDate(dateString: string) {
-  return new Date(dateString).toLocaleDateString(undefined, { day: 'numeric' });
+function formatDeolyDate(date: Date) {
+  return date.toLocaleDateString(undefined, { day: 'numeric' });
+}
+
+function getRecentDeolyDateSlots() {
+  const today = new Date();
+
+  return Array.from({ length: RECENT_DEOLY_LIMIT }, (_, index) => {
+    const date = new Date(today);
+    date.setHours(12, 0, 0, 0);
+    date.setDate(today.getDate() - index);
+
+    return {
+      date,
+      dateKey: getLocalDateKey(date.toISOString())
+    };
+  });
 }
 
 function RecentDeoliesStrip({
@@ -91,7 +105,8 @@ function RecentDeoliesStrip({
   onSeeMore: () => void;
 }) {
   const recentPosts = posts.slice(0, RECENT_DEOLY_LIMIT);
-  const placeholderCount = Math.max(0, RECENT_DEOLY_LIMIT - recentPosts.length);
+  const postByDate = new Map(recentPosts.map((post) => [getLocalDateKey(post.createdAt), post]));
+  const dateSlots = getRecentDeolyDateSlots();
 
   return (
     <View style={styles.deoliesPanel}>
@@ -104,30 +119,37 @@ function RecentDeoliesStrip({
         </Pressable>
       </View>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.deolyStrip}>
-        {recentPosts.map((post) => (
-          <View style={styles.deolyTile} key={post.id}>
-            {post.imageUrl ? (
-              <Image source={{ uri: post.imageUrl }} style={styles.deolyImage} />
-            ) : (
-              <View style={styles.deolyTextTile}>
-                <Text style={styles.deolyCaption} numberOfLines={3}>
-                  {post.caption || 'Deoly'}
-                </Text>
+        {dateSlots.map((slot, index) => {
+          const post = postByDate.get(slot.dateKey);
+
+          if (!post) {
+            return (
+              <View style={[styles.deolyTile, styles.deolyPlaceholderTile]} key={slot.dateKey}>
+                <View style={[styles.deolyTileGlow, index % 2 === 0 ? styles.deolyTileGlowAlt : null]} />
+                <Text style={styles.deolyPlaceholderDay}>{formatDeolyDay(slot.date)}</Text>
+                <Text style={styles.deolyPlaceholderDate}>{formatDeolyDate(slot.date)}</Text>
               </View>
-            )}
-            <View style={styles.deolyDateBadge}>
-              <Text style={styles.deolyDay}>{formatDeolyDay(post.createdAt)}</Text>
-              <Text style={styles.deolyDate}>{formatDeolyDate(post.createdAt)}</Text>
+            );
+          }
+
+          return (
+            <View style={styles.deolyTile} key={post.id}>
+              {post.imageUrl ? (
+                <Image source={{ uri: post.imageUrl }} style={styles.deolyImage} />
+              ) : (
+                <View style={styles.deolyTextTile}>
+                  <Text style={styles.deolyCaption} numberOfLines={3}>
+                    {post.caption || 'Deoly'}
+                  </Text>
+                </View>
+              )}
+              <View style={styles.deolyDateBadge}>
+                <Text style={styles.deolyDay}>{formatDeolyDay(slot.date)}</Text>
+                <Text style={styles.deolyDate}>{formatDeolyDate(slot.date)}</Text>
+              </View>
             </View>
-          </View>
-        ))}
-        {Array.from({ length: placeholderCount }, (_, index) => (
-          <View style={[styles.deolyTile, styles.deolyPlaceholderTile]} key={`placeholder-${index}`}>
-            <View style={[styles.deolyTileGlow, index % 2 === 0 ? styles.deolyTileGlowAlt : null]} />
-            <Text style={styles.deolyPlaceholderDay}>{recentPosts.length === 0 && index === 0 ? 'Today' : 'Empty'}</Text>
-            <Text style={styles.deolyPlaceholderDate}>{recentPosts.length + index + 1}</Text>
-          </View>
-        ))}
+          );
+        })}
       </ScrollView>
     </View>
   );
@@ -135,7 +157,7 @@ function RecentDeoliesStrip({
 
 export function ProfileScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { currentUser, feedPosts, profilePosts, isLoading } = useAppData();
+  const { currentUser, profileDeolies, profilePosts, isLoading } = useAppData();
   const { auth } = useAuth();
   const token = auth?.session.token;
   const [friends, setFriends] = useState<FriendListItem[]>([]);
@@ -149,8 +171,8 @@ export function ProfileScreen() {
       return [];
     }
 
-    return getLatestDailyDeolies(feedPosts, currentUser.id);
-  }, [currentUser, feedPosts]);
+    return getLatestDailyDeolies(profileDeolies, currentUser.id);
+  }, [currentUser, profileDeolies]);
   const deolyCount = useMemo(() => {
     return userDeolies.length;
   }, [userDeolies]);

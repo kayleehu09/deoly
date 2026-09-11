@@ -16,6 +16,7 @@ import {
   getHomeFeedPosts,
   getPermanentPostsForUser,
   getPostReactions,
+  getRecentDeolyPosts,
   removeReaction,
   type PostProgressStage
 } from '../services/posts';
@@ -28,6 +29,7 @@ type AppDataContextValue = {
   currentUser: User | null;
   users: User[];
   feedPosts: FeedPost[];
+  profileDeolies: FeedPost[];
   profilePosts: Post[];
   isLoading: boolean;
   loadError: string | null;
@@ -79,6 +81,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [users, setUsers] = useState<User[]>([]);
   const [feedPosts, setFeedPosts] = useState<FeedPost[]>([]);
+  const [profileDeolies, setProfileDeolies] = useState<FeedPost[]>([]);
   const [profilePosts, setProfilePosts] = useState<Post[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -88,6 +91,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       setCurrentUser(null);
       setUsers([]);
       setFeedPosts([]);
+      setProfileDeolies([]);
       setProfilePosts([]);
       setLoadError(null);
       setIsLoading(false);
@@ -98,9 +102,10 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       setLoadError(null);
       const authenticatedUser = toMobileUser(auth.user);
       const allUsers = [authenticatedUser, ...(await getAllUsers()).filter((user) => user.id !== authenticatedUser.id)];
-      const [homeFeed, permanentPosts] = await withTimeout(
+      const [homeFeed, recentDeolies, permanentPosts] = await withTimeout(
         Promise.all([
           getHomeFeedPosts(auth.session.token),
+          getRecentDeolyPosts(auth.session.token),
           getPermanentPostsForUser(authenticatedUser.id, auth.session.token)
         ]),
         APP_DATA_TIMEOUT_MS,
@@ -110,9 +115,11 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       setCurrentUser(authenticatedUser);
       setUsers(allUsers);
       setFeedPosts(homeFeed);
+      setProfileDeolies(recentDeolies);
       setProfilePosts(permanentPosts);
     } catch (err) {
       setFeedPosts([]);
+      setProfileDeolies([]);
       setProfilePosts([]);
 
       if (isUnauthorizedApiError(err)) {
@@ -144,6 +151,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
     currentUser,
     users,
     feedPosts,
+    profileDeolies,
     profilePosts,
     isLoading,
     loadError,
@@ -209,6 +217,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       }
 
       setFeedPosts((currentPosts) => currentPosts.filter((post) => post.id !== postId));
+      setProfileDeolies((currentPosts) => currentPosts.filter((post) => post.id !== postId));
       setProfilePosts((currentPosts) => currentPosts.filter((post) => post.id !== postId));
       await loadAppData();
     },

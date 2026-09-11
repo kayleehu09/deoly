@@ -85,6 +85,11 @@ export async function getHomeFeedPosts(token: string): Promise<FeedPost[]> {
   return response.items.map(toMobileFeedPost);
 }
 
+export async function getRecentDeolyPosts(token: string): Promise<FeedPost[]> {
+  const response = await apiFetch<BackendFeedResponse>('/posts/me/deolies/recent', undefined, token);
+  return response.items.map(toMobileFeedPost);
+}
+
 export async function getPostById(postId: string, token: string): Promise<FeedPost> {
   const response = await apiFetch<BackendGetPostResponse>(`/posts/${postId}`, undefined, token);
   return toMobileFeedPost(response.post);

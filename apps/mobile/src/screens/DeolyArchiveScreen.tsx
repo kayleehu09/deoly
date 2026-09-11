@@ -1,52 +1,64 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Image, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ImageBackground, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { colors, radii, spacing, typography } from '../constants/theme';
 import { useAppData } from '../hooks/useAppData';
-import type { FeedPost } from '../types/models';
 import type { RootStackParamList } from '../types/navigation';
-import { getLatestDailyDeolies } from '../utils/postUtils';
+import { getLatestDailyDeolies, getLocalDateKey } from '../utils/postUtils';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'DeolyArchive'>;
 
-const MEMORY_PLACEHOLDER_COUNT = 12;
+const weekDays = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+const CALENDAR_COLUMNS = 7;
+const CALENDAR_GAP = 6;
+const MONTHS_TO_SHOW = 3;
+const TILE_ASPECT_RATIO = 0.72;
 
-function formatMemoryDate(dateString: string) {
-  return new Date(dateString).toLocaleDateString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric'
+function getMonthDays(date: Date) {
+  const year = date.getFullYear();
+  const month = date.getMonth();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const firstWeekday = new Date(year, month, 1).getDay();
+  const emptyStartDays = Array.from({ length: firstWeekday }, (_, index) => ({
+    day: null,
+    dateKey: `empty-start-${index}`
+  }));
+  const monthDays = Array.from({ length: daysInMonth }, (_, index) => {
+    const day = index + 1;
+    const dayDate = new Date(year, month, day, 12, 0, 0, 0);
+
+    return {
+      day,
+      dateKey: getLocalDateKey(dayDate.toISOString())
+    };
+  });
+
+  return [...emptyStartDays, ...monthDays];
+}
+
+function formatMonthTitle(date: Date) {
+  return date.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+}
+
+function getRecentMonths(startDate: Date) {
+  return Array.from({ length: MONTHS_TO_SHOW }, (_, index) => {
+    return new Date(startDate.getFullYear(), startDate.getMonth() - index, 1, 12, 0, 0, 0);
   });
 }
 
-function MemoryTile({ post }: { post: FeedPost }) {
-  return (
-    <View style={styles.memoryTile}>
-      {post.imageUrl ? (
-        <Image source={{ uri: post.imageUrl }} style={styles.memoryImage} />
-      ) : (
-        <View style={styles.memoryTextTile}>
-          <Text style={styles.memoryCaption} numberOfLines={4}>
-            {post.caption || 'Deoly'}
-          </Text>
-        </View>
-      )}
-      <View style={styles.memoryMeta}>
-        <Text style={styles.memoryDate}>{formatMemoryDate(post.createdAt)}</Text>
-        {post.caption ? (
-          <Text style={styles.memoryCaptionPreview} numberOfLines={2}>
-            {post.caption}
-          </Text>
-        ) : null}
-      </View>
-    </View>
-  );
-}
-
 export function DeolyArchiveScreen({ navigation }: Props) {
-  const { currentUser, feedPosts } = useAppData();
-  const userDeolies = currentUser ? getLatestDailyDeolies(feedPosts, currentUser.id) : [];
+  const { width } = useWindowDimensions();
+  const { currentUser, profileDeolies } = useAppData();
+  const userDeolies = currentUser ? getLatestDailyDeolies(profileDeolies, currentUser.id) : [];
+  const visibleMonth = userDeolies[0] ? new Date(userDeolies[0].createdAt) : new Date();
+  const postByDate = new Map(userDeolies.map((post) => [getLocalDateKey(post.createdAt), post]));
+  const months = getRecentMonths(visibleMonth);
+  const tileWidth = Math.floor((width - spacing.sm * 2 - CALENDAR_GAP * (CALENDAR_COLUMNS - 1)) / CALENDAR_COLUMNS);
+  const tileSize = {
+    width: tileWidth,
+    height: Math.round(tileWidth / TILE_ASPECT_RATIO)
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -60,24 +72,45 @@ export function DeolyArchiveScreen({ navigation }: Props) {
         >
           <Ionicons name="chevron-back" size={22} color={colors.surface} />
         </Pressable>
-        <Text style={styles.headerTitle}>Memories</Text>
+        <Text style={styles.headerTitle}>Recent deolies</Text>
         <View style={styles.iconButtonSpacer} />
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Text style={styles.sectionTitle}>Recent deolies</Text>
-        <View style={styles.memoriesGrid}>
-          {userDeolies.map((post) => (
-            <MemoryTile post={post} key={post.id} />
-          ))}
-          {Array.from({ length: MEMORY_PLACEHOLDER_COUNT }, (_, index) => (
-            <View style={styles.memoryPlaceholderTile} key={`memory-placeholder-${index}`}>
-              <View style={[styles.memoryPlaceholderGlow, index % 3 === 0 ? styles.memoryPlaceholderGlowAlt : null]} />
-              <Ionicons name="image-outline" size={24} color="rgba(255, 255, 255, 0.58)" />
-              <Text style={styles.memoryPlaceholderText}>Empty</Text>
+        {months.map((month) => (
+          <View style={styles.monthSection} key={`${month.getFullYear()}-${month.getMonth()}`}>
+            <Text style={styles.monthTitle}>{formatMonthTitle(month)}</Text>
+            <View style={styles.weekRow}>
+              {weekDays.map((day) => (
+                <Text style={[styles.weekDay, { width: tileWidth }]} key={day}>{day}</Text>
+              ))}
             </View>
-          ))}
-        </View>
+            <View style={styles.calendarGrid}>
+              {getMonthDays(month).map(({ day, dateKey }) => {
+                if (!day) {
+                  return <View style={[styles.emptyDayTile, tileSize]} key={dateKey} />;
+                }
+
+                const post = postByDate.get(dateKey);
+
+                if (post?.imageUrl) {
+                  return (
+                    <ImageBackground source={{ uri: post.imageUrl }} style={[styles.dayTile, tileSize]} imageStyle={styles.dayImage} key={dateKey}>
+                      <View style={styles.dayImageOverlay} />
+                      <Text style={styles.dayNumber}>{day}</Text>
+                    </ImageBackground>
+                  );
+                }
+
+                return (
+                  <View style={[styles.dayTile, tileSize, post ? styles.dayTileSaved : day % 3 === 0 ? styles.dayTileMuted : null]} key={dateKey}>
+                    <Text style={styles.dayNumber}>{day}</Text>
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+        ))}
       </ScrollView>
     </SafeAreaView>
   );
@@ -113,89 +146,71 @@ const styles = StyleSheet.create({
     fontWeight: '800'
   },
   content: {
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: spacing.sm,
     paddingBottom: spacing.xl,
-    gap: spacing.md
+    gap: spacing.xl
   },
-  sectionTitle: {
+  monthSection: {
+    gap: spacing.sm
+  },
+  monthTitle: {
     color: colors.surface,
     fontFamily: typography.titleFamily,
     fontSize: 22,
     fontWeight: '800'
   },
-  memoriesGrid: {
+  weekRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm
+    gap: CALENDAR_GAP
   },
-  memoryTile: {
-    width: '48%',
-    minHeight: 220,
-    borderRadius: radii.sm,
-    backgroundColor: '#191919',
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)'
-  },
-  memoryImage: {
-    width: '100%',
-    aspectRatio: 1,
-    backgroundColor: '#252525'
-  },
-  memoryTextTile: {
-    width: '100%',
-    aspectRatio: 1,
-    padding: spacing.md,
-    justifyContent: 'center',
-    backgroundColor: '#252525'
-  },
-  memoryMeta: {
-    padding: spacing.sm,
-    gap: 5
-  },
-  memoryDate: {
-    color: 'rgba(255, 255, 255, 0.68)',
-    fontFamily: typography.bodyFamily,
-    fontSize: 13,
-    lineHeight: 18
-  },
-  memoryCaption: {
-    color: colors.surface,
-    fontFamily: typography.bodyFamily,
-    fontSize: 14,
-    lineHeight: 20
-  },
-  memoryCaptionPreview: {
-    color: colors.surface,
-    fontFamily: typography.bodyFamily,
-    fontSize: 14,
-    lineHeight: 20
-  },
-  memoryPlaceholderTile: {
-    width: '31%',
-    aspectRatio: 0.74,
-    borderRadius: radii.sm,
-    backgroundColor: '#191919',
-    overflow: 'hidden',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.xs
-  },
-  memoryPlaceholderGlow: {
-    position: 'absolute',
-    width: 54,
-    height: 54,
-    borderRadius: 27,
-    backgroundColor: 'rgba(200, 169, 106, 0.24)'
-  },
-  memoryPlaceholderGlowAlt: {
-    backgroundColor: 'rgba(255, 255, 255, 0.16)'
-  },
-  memoryPlaceholderText: {
-    color: 'rgba(255, 255, 255, 0.68)',
+  weekDay: {
+    color: 'rgba(255, 255, 255, 0.72)',
     fontFamily: typography.bodyFamily,
     fontSize: 12,
-    fontWeight: '700'
+    fontWeight: '800',
+    textAlign: 'center'
+  },
+  calendarGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: CALENDAR_GAP
+  },
+  dayTile: {
+    borderRadius: radii.sm,
+    backgroundColor: '#4A422C',
+    overflow: 'hidden',
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+  emptyDayTile: {
+    opacity: 0
+  },
+  dayTileSaved: {
+    backgroundColor: '#221f17',
+    borderWidth: 1,
+    borderColor: 'rgba(200, 169, 106, 0.62)'
+  },
+  dayTileMuted: {
+    backgroundColor: '#484848'
+  },
+  dayImage: {
+    borderRadius: radii.sm
+  },
+  dayImageOverlay: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: 'rgba(0, 0, 0, 0.2)'
+  },
+  dayNumber: {
+    color: colors.surface,
+    fontFamily: typography.titleFamily,
+    fontSize: 22,
+    fontWeight: '800',
+    textShadowColor: 'rgba(0, 0, 0, 0.4)',
+    textShadowOffset: {
+      width: 0,
+      height: 1
+    },
+    textShadowRadius: 3
   },
   pressed: {
     opacity: 0.72

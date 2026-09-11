@@ -18,7 +18,7 @@ import { toFeedPost, type FeedPostRecord } from "../lib/serializers.js";
 import { isPostImageObjectKeyForUser } from "../lib/storage.js";
 import { requireAuth } from "../middleware/require-auth.js";
 
-const RECENT_DEOLY_HISTORY_DAYS = 7;
+const RECENT_DEOLY_HISTORY_DAYS = 365;
 
 const createPostSchema = z.object({
   body: z.string().trim().max(POST_MAX_LENGTH).default(""),

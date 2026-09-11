@@ -66,6 +66,9 @@ async function main() {
 
   const now = new Date();
   const hour = 60 * 60 * 1000;
+  const yesterdayMorning = new Date(now);
+  yesterdayMorning.setDate(now.getDate() - 1);
+  yesterdayMorning.setHours(9, 0, 0, 0);
 
   const avaActiveDeoly = await prisma.post.create({
     data: {
@@ -94,6 +97,16 @@ async function main() {
       kind: PostKind.DEOLY,
       createdAt: new Date(now.getTime() - 2 * hour),
       expiresAt: new Date(now.getTime() + 22 * hour)
+    }
+  });
+
+  await prisma.post.create({
+    data: {
+      authorId: noah.id,
+      body: "Yesterday's deoly: looking back, God was still gentle in the small details.",
+      kind: PostKind.DEOLY,
+      createdAt: yesterdayMorning,
+      expiresAt: new Date(yesterdayMorning.getTime() + 24 * hour)
     }
   });
 
