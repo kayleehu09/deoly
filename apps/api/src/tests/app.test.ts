@@ -198,8 +198,25 @@ vi.mock("../lib/prisma.js", () => {
       createdAt: new Date(now.getTime() - 3 * 24 * hour),
       updatedAt: new Date(now.getTime() - 3 * 24 * hour),
       author: { id: "user_ava", displayName: "Ava Grace", username: "avafaith", avatarUrl: null },
-      reactions: [],
-      comments: []
+      reactions: [
+        {
+          emoji: "🔥",
+          userId: "ckvvy8r2k000101l68v2ud6mm",
+          createdAt: new Date(now.getTime() - 2 * 24 * hour),
+          user: { id: "ckvvy8r2k000101l68v2ud6mm", displayName: "Mia Rose", username: "miaprays", avatarUrl: null }
+        }
+      ],
+      comments: [
+        {
+          id: "comment_mia_cleanup",
+          postId: "post_self_expired",
+          authorId: "ckvvy8r2k000101l68v2ud6mm",
+          body: "This deleted-user comment should be removed.",
+          createdAt: new Date(now.getTime() - 2 * 24 * hour),
+          updatedAt: new Date(now.getTime() - 2 * 24 * hour),
+          author: { id: "ckvvy8r2k000101l68v2ud6mm", displayName: "Mia Rose", username: "miaprays", avatarUrl: null }
+        }
+      ]
     },
     {
       id: "post_non_friend",
@@ -266,14 +283,67 @@ vi.mock("../lib/prisma.js", () => {
     createdAt: Date;
   }> = [];
 
+  const deleteUserCascade = (userId: string) => {
+    const userIndex = users.findIndex((user) => user.id === userId);
+    const [deleted] = userIndex >= 0 ? users.splice(userIndex, 1) : [];
+
+    if (!deleted) {
+      return null;
+    }
+
+    for (let index = sessions.length - 1; index >= 0; index -= 1) {
+      if (sessions[index].userId === userId) {
+        sessions.splice(index, 1);
+      }
+    }
+
+    for (let index = friendships.length - 1; index >= 0; index -= 1) {
+      const friendship = friendships[index];
+      if (friendship.requesterId === userId || friendship.addresseeId === userId) {
+        friendships.splice(index, 1);
+      }
+    }
+
+    for (let index = blocks.length - 1; index >= 0; index -= 1) {
+      const block = blocks[index];
+      if (block.blockerId === userId || block.blockedId === userId) {
+        blocks.splice(index, 1);
+      }
+    }
+
+    for (let index = postReports.length - 1; index >= 0; index -= 1) {
+      if (postReports[index].reporterId === userId) {
+        postReports.splice(index, 1);
+      }
+    }
+
+    for (let index = activityNotifications.length - 1; index >= 0; index -= 1) {
+      const notification = activityNotifications[index];
+      if (notification.recipientId === userId || notification.actorId === userId) {
+        activityNotifications.splice(index, 1);
+      }
+    }
+
+    for (let index = posts.length - 1; index >= 0; index -= 1) {
+      const post = posts[index];
+
+      if (post.authorId === userId) {
+        posts.splice(index, 1);
+        continue;
+      }
+
+      post.reactions = post.reactions.filter((reaction) => reaction.userId !== userId);
+      post.comments = post.comments.filter((comment) => comment.authorId !== userId);
+    }
+
+    return deleted;
+  };
+
   return {
     prisma: {
       $transaction: async (callback: (tx: unknown) => Promise<unknown>) => callback({
         avatarUpload: { updateMany: async () => ({ count: 0 }) },
-        user: { delete: async ({ where }: { where: { id: string } }) => {
-          const index = users.findIndex((user) => user.id === where.id);
-          return index >= 0 ? users.splice(index, 1)[0] : null;
-        } }
+        user: { delete: async ({ where }: { where: { id: string } }) => deleteUserCascade(where.id) }
       }),
       user: {
         findFirst: vi.fn(async ({ where }) => users.find((user) => user.email === where?.OR?.[0]?.email || user.username === where?.OR?.[1]?.username) ?? null),
@@ -284,9 +354,7 @@ vi.mock("../lib/prisma.js", () => {
           return user;
         }),
         delete: vi.fn(async ({ where }) => {
-          const index = users.findIndex((user) => user.id === where.id);
-          const [deleted] = index >= 0 ? users.splice(index, 1) : [];
-          return deleted;
+          return deleteUserCascade(where.id);
         }),
         findMany: vi.fn(async ({ where, take } = {}) => {
           const query = where?.OR?.[0]?.displayName?.contains ?? where?.OR?.[1]?.username?.contains ?? "";
@@ -1187,17 +1255,58 @@ describe("Deoly API", () => {
     expect(response.status).toBe(204);
   });
 
-  it("deletes the authenticated account", async () => {
+  it("deletes the authenticated account and cleans up user data", async () => {
     const login = await request(app).post("/auth/login").send({
       email: "mia@example.com",
       password: "password123"
     });
+    const miaSessionToken = login.body.session.token;
 
     const response = await request(app)
       .delete("/auth/account")
-      .set("authorization", `Bearer ${login.body.session.token}`);
+      .set("authorization", `Bearer ${miaSessionToken}`);
+    const deletedSession = await request(app).get("/me").set("authorization", `Bearer ${miaSessionToken}`);
+    const deletedLogin = await request(app).post("/auth/login").send({
+      email: "mia@example.com",
+      password: "password123"
+    });
+    const deletedPost = await request(app).get("/posts/post_non_friend").set("authorization", `Bearer ${token}`);
+    const survivingPost = await request(app).get("/posts/post_self_expired").set("authorization", `Bearer ${token}`);
+    const search = await request(app).get("/users/search?q=Mia%20Rose").set("authorization", `Bearer ${token}`);
+    const friends = await request(app).get("/friends").set("authorization", `Bearer ${token}`);
+    const feed = await request(app).get("/feed").set("authorization", `Bearer ${token}`);
 
     expect(response.status).toBe(204);
+    expect(deletedSession.status).toBe(401);
+    expect(deletedLogin.status).toBe(401);
+    expect(deletedPost.status).toBe(404);
+    expect(survivingPost.status).toBe(200);
+    expect(survivingPost.body.post.reactionCounts["🔥"]).toBe(0);
+    expect(survivingPost.body.post.recentComments).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          author: expect.objectContaining({ id: "ckvvy8r2k000101l68v2ud6mm" })
+        })
+      ])
+    );
+    expect(search.status).toBe(200);
+    expect(search.body.users).toEqual([]);
+    expect(friends.status).toBe(200);
+    expect(friends.body.friends).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          user: expect.objectContaining({ id: "ckvvy8r2k000101l68v2ud6mm" })
+        })
+      ])
+    );
+    expect(feed.status).toBe(200);
+    expect(feed.body.items).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          author: expect.objectContaining({ id: "ckvvy8r2k000101l68v2ud6mm" })
+        })
+      ])
+    );
   });
 
   it("saves post reports for admin review", async () => {

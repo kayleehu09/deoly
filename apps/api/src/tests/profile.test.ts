@@ -225,8 +225,42 @@ describe('Profile editing with a real database', () => {
 
   it('keeps cleanup records after account deletion and retries storage failures', async () => {
     const key = await savePhoto();
+    const friendPost = await prisma.post.create({
+      data: {
+        authorId: friend.id,
+        body: 'Friend post survives owner deletion.',
+        expiresAt: new Date(Date.now() + 86400000)
+      }
+    });
+    await prisma.comment.create({ data: { authorId: owner.id, postId: friendPost.id, body: 'Owner comment on friend post' } });
+    await prisma.reaction.create({ data: { userId: owner.id, postId: friendPost.id, emoji: '🔥' } });
     expect((await request(app).delete('/auth/account').set('authorization', `Bearer ${owner.token}`)).status).toBe(204);
     expect((await get('/me')).status).toBe(401);
+    expect(await prisma.user.findUnique({ where: { id: owner.id } })).toBeNull();
+    expect(await prisma.session.count({ where: { userId: owner.id } })).toBe(0);
+    expect(await prisma.friendship.count({
+      where: {
+        OR: [{ requesterId: owner.id }, { addresseeId: owner.id }]
+      }
+    })).toBe(0);
+    expect(await prisma.post.count({ where: { authorId: owner.id } })).toBe(0);
+    expect(await prisma.post.findUnique({ where: { id: friendPost.id } })).not.toBeNull();
+    expect(await prisma.comment.count({ where: { authorId: owner.id } })).toBe(0);
+    expect(await prisma.reaction.count({ where: { userId: owner.id } })).toBe(0);
+    expect(await prisma.activityNotification.count({
+      where: {
+        OR: [{ actorId: owner.id }, { recipientId: owner.id }]
+      }
+    })).toBe(0);
+    expect((await get('/users/search?q=owner', friend.token)).body.users).toEqual([]);
+    expect((await get('/friends', friend.token)).body.friends).toEqual([]);
+    expect((await get('/feed', friend.token)).body.items).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          author: expect.objectContaining({ id: owner.id })
+        })
+      ])
+    );
     vi.mocked(deleteAvatarObject).mockRejectedValueOnce(new Error('offline'));
     await cleanupAvatars();
     expect((await prisma.avatarUpload.findUniqueOrThrow({ where: { objectKey: key } })).state).toBe('DELETING');
