@@ -1,7 +1,12 @@
+import { isUnauthorizedApiError } from '../services/auth';
+import { DEFAULT_AVATAR_URI } from '../constants/avatar';
+import { useFocusEffect } from '../hooks/useRefreshOnFocus';
+import { getPublicProfile } from '../services/profile';
+import type { PublicUserProfile } from '@deoly/shared';
 import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useMemo, useState } from 'react';
-import { Image, Modal, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useMemo, useState } from 'react';
+import { ActivityIndicator, Image, Modal, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { AvatarPreviewModal } from '../components/AvatarPreviewModal';
 import { PostCard } from '../components/PostCard';
@@ -28,8 +33,8 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string)
 }
 
 export function FriendProfileScreen({ navigation, route }: Props) {
-  const { auth } = useAuth();
-  const { users, feedPosts, refreshAppData, blockUserById } = useAppData();
+  const { auth, clearSavedAuth } = useAuth();
+  const { feedPosts, refreshAppData, blockUserById } = useAppData();
   const [isHeaderAvatarVisible, setIsHeaderAvatarVisible] = useState(false);
   const [isSafetyMenuVisible, setIsSafetyMenuVisible] = useState(false);
   const [friendship, setFriendship] = useState<FriendshipSnapshot | null>(route.params.friendship ?? null);
@@ -40,19 +45,26 @@ export function FriendProfileScreen({ navigation, route }: Props) {
   const userId = route.params.userId;
   const userPosts = useMemo(() => feedPosts.filter((post) => post.userId === userId), [feedPosts, userId]);
   const visibleUserPosts = hideVisiblePosts ? [] : userPosts;
-  const snapshotUser = route.params.user
-    ? {
-        id: route.params.user.id,
-        username: route.params.user.username,
-        displayName: route.params.user.displayName,
-        profileImageUrl: route.params.user.profileImageUrl,
-        bio: route.params.user.bio ?? '',
-        friendIds: [],
-        closeFriendIds: []
-      }
-    : null;
-  const user = users.find((item) => item.id === userId) ?? userPosts[0]?.user ?? snapshotUser;
+  const [freshUser, setFreshUser] = useState<PublicUserProfile | null>(null);
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const [isLoadingProfile, setIsLoadingProfile] = useState(true);
+  const [profileRetry, setProfileRetry] = useState(0);
+  const user = freshUser ? { ...freshUser, profileImageUrl: freshUser.avatarUrl ?? DEFAULT_AVATAR_URI, bio: freshUser.bio ?? '' } : null;
   const token = auth?.session.token;
+
+  useFocusEffect(useCallback(() => {
+    let active = true;
+    setIsLoadingProfile(true);
+    setFreshUser(null);
+    setProfileError(null);
+    if (token) void getPublicProfile(userId, token).then(({ user: result }) => {
+      if (active) setFreshUser(result);
+    }).catch((error) => {
+      if (active && isUnauthorizedApiError(error)) { void clearSavedAuth(); return; }
+      if (active) { setFreshUser(null); setProfileError(error instanceof Error ? error.message : 'Could not load profile.'); }
+    }).finally(() => { if (active) setIsLoadingProfile(false); });
+    return () => { active = false; };
+  }, [token, userId, profileRetry, clearSavedAuth]));
 
   async function runFriendAction(nextFriendship: FriendshipSnapshot | null, action: () => Promise<void>, actionId: string) {
     if (!token || busyAction) {
@@ -151,12 +163,21 @@ export function FriendProfileScreen({ navigation, route }: Props) {
     })();
   }
 
-  if (!user) {
+  if (isLoadingProfile) {
+    return <SafeAreaView style={styles.safeArea}><View style={styles.fallback}>
+      <ActivityIndicator accessibilityLabel="Loading profile" color={colors.accent} />
+      <Pressable accessibilityRole="button" onPress={() => navigation.goBack()}><Text style={styles.emptyTitle}>Back</Text></Pressable>
+    </View></SafeAreaView>;
+  }
+
+  if (!user || profileError) {
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.fallback}>
-          <Text style={styles.emptyTitle}>Could not load profile</Text>
-          <Text style={styles.emptyText}>This account is not available from your current feed.</Text>
+          <Text style={styles.emptyTitle}>{profileError ?? 'Could not load profile'}</Text>
+          <Pressable accessibilityRole="button" onPress={() => setProfileRetry((value) => value + 1)}><Text style={styles.emptyTitle}>Retry</Text></Pressable>
+          <Text style={styles.emptyText}>Please try again or go back.</Text>
+          <Pressable accessibilityRole="button" onPress={() => navigation.goBack()}><Text style={styles.emptyTitle}>Back</Text></Pressable>
         </View>
       </SafeAreaView>
     );
@@ -273,7 +294,7 @@ export function FriendProfileScreen({ navigation, route }: Props) {
           <View style={styles.identity}>
             <Text style={styles.displayName}>{user.displayName}</Text>
             <Text style={styles.username}>@{user.username}</Text>
-            <Text style={styles.bio}>{user.bio || 'Bio coming soon'}</Text>
+            <Text style={styles.bio}>{user.bio}</Text>
           </View>
         </View>
 

@@ -1,3 +1,4 @@
+import { DEFAULT_AVATAR_URI } from '../constants/avatar';
 import { ActivityIndicator, Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -12,7 +13,7 @@ type ReactionViewerSheetProps = {
   onClose: () => void;
 };
 
-const DEFAULT_PROFILE_IMAGE_URL = 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=400&q=80';
+const DEFAULT_PROFILE_IMAGE_URL = DEFAULT_AVATAR_URI;
 
 export function ReactionViewerSheet({ visible, groups, isLoading, error, onClose }: ReactionViewerSheetProps) {
   return (

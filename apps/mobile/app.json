@@ -29,7 +29,14 @@
       ],
       "expo-secure-store",
       "expo-font",
-      "expo-status-bar"
+      "expo-status-bar",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow Deoly to choose a profile photo from your library.",
+          "cameraPermission": "Allow Deoly to open your camera so you can share devotional moments."
+        }
+      ]
     ]
   }
 }

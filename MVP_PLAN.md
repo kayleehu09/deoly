@@ -127,6 +127,11 @@ Delete your own post
 Delete or deactivate account
 Remove/hide deleted user’s posts, comments, reactions, and friendships
 Polish UI
+Edit profile (GitHub #20): display name, username, optional 160-character bio, and a photo from the phone library
+Open the editor from Profile and Settings; Save/Cancel, validation, retry, and unsaved-change protection
+Keep avatar storage private; show bio/photo to signed-in users unless either person has blocked the other
+Persist profile changes across refresh/relogin and refresh identity across feed, friends, search, and activity
+Profile editing implementation and automated checks complete; Expo Go / live R2 acceptance checks remain in PROFILE_EDITING_TEST_PLAN.md
 Fix weird bugs
 Test with 3 fake users
 Check that posts disappear after 24 hours
@@ -163,6 +168,10 @@ Risk if ignored: old posts may show or hide in confusing places.
 
 Deferred / Later Polish
 Tasks:
+Additional account/profile settings
+Decision: profile editing includes display name, username (no cooldown), bio, and a library photo. Password/email changes, friends-list visibility controls, camera capture for avatars, pasted image URLs, and web editing are outside this step.
+When to revisit: after private beta essentials and the profile-editing device checks are complete.
+Risk if ignored: low for this MVP step; current login and post privacy rules remain in place.
 Friend request accepted micro-interaction
 Remembered idea: add a fun burst or tiny thin-lettered “Accepted request!” pop-up after accepting a friend request.
 Why it matters: adds delight without changing core friend-request behavior.

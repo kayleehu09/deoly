@@ -13,6 +13,7 @@ declare module "express-serve-static-core" {
         displayName: string;
         bio: string | null;
         avatarUrl: string | null;
+        avatarObjectKey: string | null;
         createdAt: Date;
         updatedAt: Date;
         passwordHash: string;

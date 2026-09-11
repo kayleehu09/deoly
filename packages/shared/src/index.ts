@@ -2,6 +2,22 @@ export const POST_MAX_LENGTH = 280;
 export const COMMENT_MAX_LENGTH = 200;
 export const DISPLAY_NAME_MAX_LENGTH = 40;
 export const USERNAME_MAX_LENGTH = 24;
+export const BIO_MAX_LENGTH = 160;
+
+export interface UpdateProfileInput {
+  displayName?: string;
+  username?: string;
+  bio?: string | null;
+  avatarObjectKey?: string | null;
+}
+
+export interface PublicUserProfile {
+  id: string;
+  displayName: string;
+  username: string;
+  bio: string | null;
+  avatarUrl: string | null;
+}
 export const ALLOWED_REACTION_EMOJIS = ["🙏", "❤️", "🙌", "🔥"] as const;
 export const POST_VISIBILITIES = ["friends", "close_circle"] as const;
 export const POST_KINDS = ["deoly", "permanent"] as const;

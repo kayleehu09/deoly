@@ -1,5 +1,7 @@
+import { DEFAULT_AVATAR_URI } from '../constants/avatar';
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect } from '../hooks/useRefreshOnFocus';
+
 import { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -27,7 +29,7 @@ type BlockedRowItem = BlockListItem & {
   status: BlockStatus;
 };
 
-const DEFAULT_AVATAR_URL = 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=400&q=80';
+const DEFAULT_AVATAR_URL = DEFAULT_AVATAR_URI;
 const BLOCKS_TIMEOUT_MS = 12000;
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string) {

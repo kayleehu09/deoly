@@ -268,6 +268,13 @@ vi.mock("../lib/prisma.js", () => {
 
   return {
     prisma: {
+      $transaction: async (callback: (tx: unknown) => Promise<unknown>) => callback({
+        avatarUpload: { updateMany: async () => ({ count: 0 }) },
+        user: { delete: async ({ where }: { where: { id: string } }) => {
+          const index = users.findIndex((user) => user.id === where.id);
+          return index >= 0 ? users.splice(index, 1)[0] : null;
+        } }
+      }),
       user: {
         findFirst: vi.fn(async ({ where }) => users.find((user) => user.email === where?.OR?.[0]?.email || user.username === where?.OR?.[1]?.username) ?? null),
         findUnique: vi.fn(async ({ where }) => users.find((user) => user.email === where.email || user.id === where.id) ?? null),

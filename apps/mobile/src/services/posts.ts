@@ -1,3 +1,4 @@
+import { DEFAULT_AVATAR_URI } from '../constants/avatar';
 import { mockPosts } from '../data/mockPosts';
 import { apiFetch } from './auth';
 import type { FeedPost, Post, PostComment, PostReactionGroup, ReactionEmoji, User } from '../types/models';
@@ -49,7 +50,7 @@ type BackendCreateMediaUploadResponse = {
   headers: Record<string, string>;
 };
 
-const DEFAULT_PROFILE_IMAGE_URL = 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=400&q=80';
+const DEFAULT_PROFILE_IMAGE_URL = DEFAULT_AVATAR_URI;
 const POST_IMAGE_CONTENT_TYPE = 'image/jpeg';
 
 export type PostProgressStage = 'preparing' | 'uploading' | 'creating' | 'refreshing' | 'done';

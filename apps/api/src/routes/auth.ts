@@ -1,6 +1,7 @@
+import { Prisma } from "@prisma/client";
+import { displayNameSchema, usernameSchema } from "../lib/profile-validation.js";
 import { Router } from "express";
 import { z } from "zod";
-import { DISPLAY_NAME_MAX_LENGTH, USERNAME_MAX_LENGTH } from "@deoly/shared";
 import { ApiError } from "../lib/errors.js";
 import { createSession, deleteSession, hashPassword, verifyPassword } from "../lib/auth.js";
 import { prisma } from "../lib/prisma.js";
@@ -8,8 +9,8 @@ import { toUserProfile } from "../lib/serializers.js";
 import { requireAuth } from "../middleware/require-auth.js";
 
 const signupSchema = z.object({
-  displayName: z.string().trim().min(2).max(DISPLAY_NAME_MAX_LENGTH),
-  username: z.string().trim().min(3).max(USERNAME_MAX_LENGTH).regex(/^[a-zA-Z0-9_]+$/),
+  displayName: displayNameSchema,
+  username: usernameSchema,
   email: z.string().trim().email(),
   password: z.string().min(8).max(72)
 });
@@ -27,7 +28,7 @@ authRouter.post("/signup", async (req, res, next) => {
 
     const existing = await prisma.user.findFirst({
       where: {
-        OR: [{ email: input.email }, { username: input.username }]
+        OR: [{ email: input.email.toLowerCase() }, { username: input.username }]
       }
     });
 
@@ -47,10 +48,13 @@ authRouter.post("/signup", async (req, res, next) => {
     const session = await createSession(user);
 
     res.status(201).json({
-      user: toUserProfile(user),
+      user: await toUserProfile(user),
       session
     });
   } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      return next(new ApiError(409, "ACCOUNT_EXISTS", "An account with that email or username already exists."));
+    }
     next(error);
   }
 });
@@ -72,7 +76,7 @@ authRouter.post("/login", async (req, res, next) => {
     const session = await createSession(user);
 
     res.json({
-      user: toUserProfile(user),
+      user: await toUserProfile(user),
       session
     });
   } catch (error) {
@@ -91,10 +95,13 @@ authRouter.post("/logout", requireAuth, async (req, res, next) => {
 
 authRouter.delete("/account", requireAuth, async (req, res, next) => {
   try {
-    await prisma.user.delete({
-      where: {
-        id: req.auth!.user.id
-      }
+    const userId = req.auth!.user.id;
+    await prisma.$transaction(async (tx) => {
+      await tx.avatarUpload.updateMany({
+        where: { userId, state: "ACTIVE" },
+        data: { state: "PENDING", deleteAfter: new Date() }
+      });
+      await tx.user.delete({ where: { id: userId } });
     });
 
     res.status(204).send();

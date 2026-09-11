@@ -1,3 +1,4 @@
+import { EditProfileScreen } from '../screens/EditProfileScreen';
 import { FontAwesome6, Ionicons } from '@expo/vector-icons';
 import { DefaultTheme, NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -144,6 +145,7 @@ export function AppNavigator() {
             <RootStack.Screen name="FriendProfile" component={FriendProfileScreen} options={{ headerShown: false }} />
             <RootStack.Screen name="ProfileFriends" component={ProfileFriendsScreen} options={{ headerShown: false }} />
             <RootStack.Screen name="BlockedUsers" component={BlockedUsersScreen} options={{ headerShown: false }} />
+            <RootStack.Screen name="EditProfile" component={EditProfileScreen} options={{ headerShown: false }} />
             <RootStack.Screen name="Settings" component={SettingsScreen} options={{ headerShown: false }} />
             <RootStack.Screen
               name="PostComposer"

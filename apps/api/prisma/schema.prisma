@@ -15,6 +15,7 @@ model User {
   passwordHash              String
   bio                       String?
   avatarUrl                 String?
+  avatarObjectKey           String?
   createdAt                 DateTime               @default(now())
   updatedAt                 DateTime               @updatedAt
   posts                     Post[]
@@ -28,6 +29,18 @@ model User {
   postReports               PostReport[]           @relation("postReportReporter")
   activityNotifications     ActivityNotification[] @relation("activityNotificationRecipient")
   sentActivityNotifications ActivityNotification[] @relation("activityNotificationActor")
+}
+
+// No User foreign key: cleanup must survive account deletion.
+model AvatarUpload {
+  objectKey   String   @id
+  userId      String
+  state       String   @default("PENDING")
+  deleteAfter DateTime
+  createdAt   DateTime @default(now())
+
+  @@index([state, deleteAfter])
+  @@index([userId])
 }
 
 model Session {

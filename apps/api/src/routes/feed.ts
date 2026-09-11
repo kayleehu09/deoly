@@ -33,7 +33,8 @@ feedRouter.get("/", requireAuth, async (req, res, next) => {
             id: true,
             displayName: true,
             username: true,
-            avatarUrl: true
+            avatarUrl: true,
+            avatarObjectKey: true
           }
         },
         reactions: {
@@ -53,7 +54,8 @@ feedRouter.get("/", requireAuth, async (req, res, next) => {
                 id: true,
                 displayName: true,
                 username: true,
-                avatarUrl: true
+                avatarUrl: true,
+                avatarObjectKey: true
               }
             }
           }

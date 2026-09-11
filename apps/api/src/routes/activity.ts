@@ -18,7 +18,8 @@ activityRouter.get("/", requireAuth, async (req, res, next) => {
             id: true,
             displayName: true,
             username: true,
-            avatarUrl: true
+            avatarUrl: true,
+            avatarObjectKey: true
           }
         }
       },
@@ -29,7 +30,7 @@ activityRouter.get("/", requireAuth, async (req, res, next) => {
     });
 
     res.json({
-      items: notifications.map(toActivityNotification)
+      items: await Promise.all(notifications.map((item) => toActivityNotification(item, viewerId)))
     });
   } catch (error) {
     next(error);

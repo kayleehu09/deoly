@@ -1,3 +1,6 @@
+import { toPublicIdentity } from "../lib/avatars.js";
+import { areUsersBlocked } from "../lib/blocks.js";
+import { ApiError } from "../lib/errors.js";
 import { Router } from "express";
 import { requireAuth } from "../middleware/require-auth.js";
 import { getBlockedUserIds } from "../lib/blocks.js";
@@ -30,7 +33,8 @@ usersRouter.get("/search", requireAuth, async (req, res, next) => {
         id: true,
         displayName: true,
         username: true,
-        avatarUrl: true
+        avatarUrl: true,
+        avatarObjectKey: true
       }
     });
 
@@ -40,6 +44,7 @@ usersRouter.get("/search", requireAuth, async (req, res, next) => {
       }
     });
 
+    const identities = new Map(await Promise.all(users.filter((user) => !blockedUserIds.has(user.id)).map(async (user) => [user.id, await toPublicIdentity(user, viewerId)] as const)));
     res.json({
       users: users.flatMap((user) => {
         if (blockedUserIds.has(user.id)) {
@@ -64,7 +69,7 @@ usersRouter.get("/search", requireAuth, async (req, res, next) => {
         }
 
         return [{
-          ...user,
+          ...identities.get(user.id)!,
           friendshipStatus,
           friendshipId: friendship?.status === "PENDING" || friendship?.status === "ACCEPTED" ? friendship.id : null
         }];
@@ -73,4 +78,17 @@ usersRouter.get("/search", requireAuth, async (req, res, next) => {
   } catch (error) {
     next(error);
   }
+});
+
+usersRouter.get("/:id", requireAuth, async (req, res, next) => {
+  try {
+    const viewerId = req.auth!.user.id;
+    const userId = String(req.params.id);
+    if (await areUsersBlocked(viewerId, userId)) {
+      throw new ApiError(404, "USER_NOT_FOUND", "That profile is unavailable.");
+    }
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new ApiError(404, "USER_NOT_FOUND", "That profile is unavailable.");
+    res.json({ user: { ...await toPublicIdentity(user, viewerId), bio: user.bio } });
+  } catch (error) { next(error); }
 });

@@ -1,5 +1,7 @@
+import { useFocusEffect } from '../hooks/useRefreshOnFocus';
+import { DEFAULT_AVATAR_URI } from '../constants/avatar';
 import { Ionicons } from '@expo/vector-icons';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   FlatList,
   Image,
@@ -20,7 +22,7 @@ import {
 } from '../services/friends';
 import { searchUsers, type SearchFriendshipStatus, type SearchUserResult } from '../services/userSearch';
 
-const DEFAULT_AVATAR_URL = 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=400&q=80';
+const DEFAULT_AVATAR_URL = DEFAULT_AVATAR_URI;
 const MIN_SEARCH_LENGTH = 2;
 const EMPTY_SEARCH_QUERY = '';
 const SEARCH_TIMEOUT_MS = 12000;
@@ -189,7 +191,7 @@ export function SearchScreen() {
     [token, trimmedQuery]
   );
 
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
     if (!canLoadUsers) {
       setResults([]);
       setIsLoading(false);
@@ -204,7 +206,7 @@ export function SearchScreen() {
     return () => {
       clearTimeout(searchTimer);
     };
-  }, [canLoadUsers, runSearch, trimmedQuery]);
+  }, [canLoadUsers, runSearch, trimmedQuery]));
 
   async function runFriendAction({
     actionId,

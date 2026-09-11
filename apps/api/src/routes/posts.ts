@@ -1,3 +1,4 @@
+import { toPublicIdentity } from "../lib/avatars.js";
 import { Router } from "express";
 import { z } from "zod";
 import {
@@ -68,7 +69,8 @@ postsRouter.post("/", requireAuth, async (req, res, next) => {
             id: true,
             displayName: true,
             username: true,
-            avatarUrl: true
+            avatarUrl: true,
+            avatarObjectKey: true
           }
         },
         reactions: {
@@ -84,7 +86,8 @@ postsRouter.post("/", requireAuth, async (req, res, next) => {
                 id: true,
                 displayName: true,
                 username: true,
-                avatarUrl: true
+                avatarUrl: true,
+                avatarObjectKey: true
               }
             }
           }
@@ -119,7 +122,8 @@ postsRouter.get("/me/deolies/recent", requireAuth, async (req, res, next) => {
             id: true,
             displayName: true,
             username: true,
-            avatarUrl: true
+            avatarUrl: true,
+            avatarObjectKey: true
           }
         },
         reactions: {
@@ -135,7 +139,8 @@ postsRouter.get("/me/deolies/recent", requireAuth, async (req, res, next) => {
                 id: true,
                 displayName: true,
                 username: true,
-                avatarUrl: true
+                avatarUrl: true,
+                avatarObjectKey: true
               }
             }
           }
@@ -174,7 +179,8 @@ postsRouter.get("/users/:userId/permanent", requireAuth, async (req, res, next) 
             id: true,
             displayName: true,
             username: true,
-            avatarUrl: true
+            avatarUrl: true,
+            avatarObjectKey: true
           }
         },
         reactions: {
@@ -190,7 +196,8 @@ postsRouter.get("/users/:userId/permanent", requireAuth, async (req, res, next) 
                 id: true,
                 displayName: true,
                 username: true,
-                avatarUrl: true
+                avatarUrl: true,
+                avatarObjectKey: true
               }
             }
           }
@@ -222,7 +229,8 @@ postsRouter.get("/:id", requireAuth, async (req, res, next) => {
             id: true,
             displayName: true,
             username: true,
-            avatarUrl: true
+            avatarUrl: true,
+            avatarObjectKey: true
           }
         },
         reactions: {
@@ -241,7 +249,8 @@ postsRouter.get("/:id", requireAuth, async (req, res, next) => {
                 id: true,
                 displayName: true,
                 username: true,
-                avatarUrl: true
+                avatarUrl: true,
+                avatarObjectKey: true
               }
             }
           }
@@ -318,7 +327,8 @@ postsRouter.get("/:id/reactions", requireAuth, async (req, res, next) => {
                 id: true,
                 displayName: true,
                 username: true,
-                avatarUrl: true
+                avatarUrl: true,
+                avatarObjectKey: true
               }
             }
           }
@@ -348,7 +358,7 @@ postsRouter.get("/:id/reactions", requireAuth, async (req, res, next) => {
 
     for (const reaction of post.reactions) {
       if (visibleEmojis.includes(reaction.emoji as AllowedReactionEmoji) && !blockedUserIds.has(reaction.userId)) {
-        groupsByEmoji.get(reaction.emoji as AllowedReactionEmoji)?.users.push(reaction.user);
+        groupsByEmoji.get(reaction.emoji as AllowedReactionEmoji)?.users.push(await toPublicIdentity(reaction.user, viewerId));
       }
     }
 
@@ -481,7 +491,8 @@ postsRouter.post("/:id/comments", requireAuth, async (req, res, next) => {
             id: true,
             displayName: true,
             username: true,
-            avatarUrl: true
+            avatarUrl: true,
+            avatarObjectKey: true
           }
         }
       }
@@ -499,7 +510,7 @@ postsRouter.post("/:id/comments", requireAuth, async (req, res, next) => {
         id: comment.id,
         body: comment.body,
         createdAt: comment.createdAt.toISOString(),
-        author: comment.author
+        author: await toPublicIdentity(comment.author, viewerId)
       }
     });
   } catch (error) {

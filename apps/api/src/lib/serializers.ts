@@ -1,28 +1,30 @@
+import { toPublicIdentity } from "./avatars.js";
 import type { AllowedReactionEmoji, FeedComment, FeedPost, UserProfile } from "@deoly/shared";
 import { ALLOWED_REACTION_EMOJIS } from "@deoly/shared";
 import { createPostImageReadUrl } from "./storage.js";
 
-export function toUserProfile(user: {
+export async function toUserProfile(user: {
   id: string;
   displayName: string;
   username: string;
   email: string;
   bio: string | null;
   avatarUrl: string | null;
+  avatarObjectKey?: string | null;
   createdAt: Date;
-}): UserProfile {
+}): Promise<UserProfile> {
   return {
     id: user.id,
     displayName: user.displayName,
     username: user.username,
     email: user.email,
     bio: user.bio,
-    avatarUrl: user.avatarUrl,
+    avatarUrl: (await toPublicIdentity(user, user.id)).avatarUrl,
     createdAt: user.createdAt.toISOString()
   };
 }
 
-export function toFeedComment(comment: {
+export async function toFeedComment(comment: {
   id: string;
   body: string;
   createdAt: Date;
@@ -31,13 +33,14 @@ export function toFeedComment(comment: {
     displayName: string;
     username: string;
     avatarUrl: string | null;
+    avatarObjectKey?: string | null;
   };
-}): FeedComment {
+}, viewerId: string): Promise<FeedComment> {
   return {
     id: comment.id,
     body: comment.body,
     createdAt: comment.createdAt.toISOString(),
-    author: comment.author
+    author: await toPublicIdentity(comment.author, viewerId)
   };
 }
 
@@ -55,6 +58,7 @@ export type FeedPostRecord = {
     displayName: string;
     username: string;
     avatarUrl: string | null;
+    avatarObjectKey?: string | null;
   };
   reactions: Array<{
     emoji: string;
@@ -69,6 +73,7 @@ export type FeedPostRecord = {
       displayName: string;
       username: string;
       avatarUrl: string | null;
+      avatarObjectKey?: string | null;
     };
   }>;
 };
@@ -97,10 +102,10 @@ export async function toFeedPost(post: FeedPostRecord, viewerId: string): Promis
     expiresAt: post.expiresAt?.toISOString() ?? null,
     createdAt: post.createdAt.toISOString(),
     updatedAt: post.updatedAt.toISOString(),
-    author: post.author,
+    author: await toPublicIdentity(post.author, viewerId),
     reactionCounts,
     viewerReactions,
-    recentComments: post.comments.map(toFeedComment),
+    recentComments: await Promise.all(post.comments.map((comment) => toFeedComment(comment, viewerId))),
     commentCount: post.comments.length
   };
 }

@@ -1,3 +1,4 @@
+import { toPublicIdentity } from "./avatars.js";
 import type { ActivityNotification as ApiActivityNotification, AllowedReactionEmoji } from "@deoly/shared";
 import type { ActivityNotificationType } from "@prisma/client";
 import { prisma } from "./prisma.js";
@@ -30,7 +31,7 @@ export async function createActivityNotification(input: {
   });
 }
 
-export function toActivityNotification(notification: {
+export async function toActivityNotification(notification: {
   id: string;
   type: ActivityNotificationType;
   postId: string | null;
@@ -41,8 +42,9 @@ export function toActivityNotification(notification: {
     displayName: string;
     username: string;
     avatarUrl: string | null;
+    avatarObjectKey?: string | null;
   };
-}): ApiActivityNotification {
+}, viewerId: string): Promise<ApiActivityNotification> {
   const message = activityMessages[notification.type]({
     actorName: notification.actor.displayName,
     emoji: notification.emoji
@@ -55,6 +57,6 @@ export function toActivityNotification(notification: {
     createdAt: notification.createdAt.toISOString(),
     emoji: notification.emoji as AllowedReactionEmoji | null,
     postId: notification.postId,
-    actor: notification.actor
+    actor: await toPublicIdentity(notification.actor, viewerId)
   };
 }

@@ -23,6 +23,7 @@ export type RootStackParamList = {
   ProfileFriends: undefined;
   BlockedUsers: undefined;
   Settings: undefined;
+  EditProfile: undefined;
   PostComposer: {
     imageUri: string;
   };

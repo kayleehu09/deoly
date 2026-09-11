@@ -1,6 +1,7 @@
+import { useFocusEffect } from '../hooks/useRefreshOnFocus';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, SafeAreaView, StyleSheet, Text, View } from 'react-native';
 
 import { FeedList } from '../components/FeedList';
@@ -26,6 +27,9 @@ export function HomeScreen() {
     commentOnPost,
     deletePostById
   } = useAppData();
+  const refreshRef = useRef(refreshAppData);
+  refreshRef.current = refreshAppData;
+  useFocusEffect(useCallback(() => { void refreshRef.current(); }, []));
   const [reactionPost, setReactionPost] = useState<FeedPost | null>(null);
   const [reactionGroups, setReactionGroups] = useState<PostReactionGroup[]>([]);
   const [isLoadingReactions, setIsLoadingReactions] = useState(false);

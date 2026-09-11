@@ -1,12 +1,15 @@
+import { DEFAULT_AVATAR_URI } from '../constants/avatar';
 import {
   createContext,
   useContext,
+  useRef,
+  useMemo,
+  useCallback,
   useEffect,
   useState,
   type PropsWithChildren
 } from 'react';
 
-import { mockUsers } from '../data/mockUsers';
 import { useAuth } from './useAuth';
 import {
   addComment,
@@ -21,7 +24,6 @@ import {
   type PostProgressStage
 } from '../services/posts';
 import { blockUser } from '../services/safety';
-import { getAllUsers } from '../services/users';
 import { isUnauthorizedApiError, type UserProfile } from '../services/auth';
 import type { FeedPost, Post, PostReactionGroup, ReactionEmoji, User } from '../types/models';
 
@@ -48,7 +50,7 @@ type AppDataContextValue = {
 
 const AppDataContext = createContext<AppDataContextValue | undefined>(undefined);
 
-const DEFAULT_PROFILE_IMAGE_URL = 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=400&q=80';
+const DEFAULT_PROFILE_IMAGE_URL = DEFAULT_AVATAR_URI;
 const APP_DATA_TIMEOUT_MS = 12000;
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string) {
@@ -63,22 +65,23 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string)
 }
 
 function toMobileUser(user: UserProfile): User {
-  const demoFriendIds = mockUsers.map((item) => item.id);
-
   return {
     id: user.id,
     username: user.username,
     displayName: user.displayName,
     profileImageUrl: user.avatarUrl ?? DEFAULT_PROFILE_IMAGE_URL,
     bio: user.bio ?? '',
-    friendIds: demoFriendIds,
-    closeFriendIds: demoFriendIds.slice(0, 2)
+    friendIds: [],
+    closeFriendIds: []
   };
 }
 
 export function AppDataProvider({ children }: PropsWithChildren) {
   const { auth, isRestoring, clearSavedAuth } = useAuth();
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const currentUser = useMemo(() => auth ? toMobileUser(auth.user) : null, [auth]);
+  const latestAuth = useRef(auth);
+  latestAuth.current = auth;
+  const loadSequence = useRef(0);
   const [users, setUsers] = useState<User[]>([]);
   const [feedPosts, setFeedPosts] = useState<FeedPost[]>([]);
   const [profileDeolies, setProfileDeolies] = useState<FeedPost[]>([]);
@@ -86,9 +89,10 @@ export function AppDataProvider({ children }: PropsWithChildren) {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  const loadAppData = async () => {
+  const loadAppData = useCallback(async () => {
+    const sequence = ++loadSequence.current;
+    const isCurrent = () => sequence === loadSequence.current && auth === latestAuth.current;
     if (!auth) {
-      setCurrentUser(null);
       setUsers([]);
       setFeedPosts([]);
       setProfileDeolies([]);
@@ -101,7 +105,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
     try {
       setLoadError(null);
       const authenticatedUser = toMobileUser(auth.user);
-      const allUsers = [authenticatedUser, ...(await getAllUsers()).filter((user) => user.id !== authenticatedUser.id)];
+      const allUsers = [authenticatedUser];
       const [homeFeed, recentDeolies, permanentPosts] = await withTimeout(
         Promise.all([
           getHomeFeedPosts(auth.session.token),
@@ -112,18 +116,18 @@ export function AppDataProvider({ children }: PropsWithChildren) {
         'Feed data is taking too long to load.'
       );
 
-      setCurrentUser(authenticatedUser);
+      if (!isCurrent()) return;
       setUsers(allUsers);
       setFeedPosts(homeFeed);
       setProfileDeolies(recentDeolies);
       setProfilePosts(permanentPosts);
     } catch (err) {
+      if (!isCurrent()) return;
       setFeedPosts([]);
       setProfileDeolies([]);
       setProfilePosts([]);
 
       if (isUnauthorizedApiError(err)) {
-        setCurrentUser(null);
         setUsers([]);
         setLoadError(null);
         await clearSavedAuth();
@@ -132,9 +136,9 @@ export function AppDataProvider({ children }: PropsWithChildren) {
 
       setLoadError(err instanceof Error ? err.message : 'Could not load app data.');
     } finally {
-      setIsLoading(false);
+      if (isCurrent()) setIsLoading(false);
     }
-  };
+  }, [auth, clearSavedAuth]);
 
   useEffect(() => {
     if (isRestoring) {
@@ -145,7 +149,12 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       setIsLoading(true);
       await loadAppData();
     })();
-  }, [auth, isRestoring]);
+  }, [loadAppData, isRestoring]);
+
+  const refreshAppData = useCallback(async () => {
+    setIsLoading(true);
+    await loadAppData();
+  }, [loadAppData]);
 
   const value: AppDataContextValue = {
     currentUser,
@@ -155,10 +164,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
     profilePosts,
     isLoading,
     loadError,
-    refreshAppData: async () => {
-      setIsLoading(true);
-      await loadAppData();
-    },
+    refreshAppData,
     publishPost: async ({ imageUrl, caption, onProgress }) => {
       if (!currentUser || !auth) {
         return;

@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useFocusEffect } from '../hooks/useRefreshOnFocus';
+import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useCallback, useMemo, useState } from 'react';
 import {
@@ -158,7 +159,7 @@ function RecentDeoliesStrip({
 export function ProfileScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { currentUser, profileDeolies, profilePosts, isLoading } = useAppData();
-  const { auth } = useAuth();
+  const { auth, refreshProfile } = useAuth();
   const token = auth?.session.token;
   const [friends, setFriends] = useState<FriendListItem[]>([]);
   const [isLoadingFriends, setIsLoadingFriends] = useState(true);
@@ -204,7 +205,8 @@ export function ProfileScreen() {
   useFocusEffect(
     useCallback(() => {
       void refreshFriends();
-    }, [refreshFriends])
+      void refreshProfile();
+    }, [refreshFriends, refreshProfile])
   );
 
   if (!currentUser) {
@@ -253,7 +255,10 @@ export function ProfileScreen() {
           </View>
         </View>
 
-        <Text style={styles.bio}>{currentUser.bio || 'Bio coming soon'}</Text>
+        <Text style={styles.bio}>{currentUser.bio}</Text>
+        <Pressable accessibilityRole="button" onPress={() => navigation.navigate('EditProfile')} style={styles.editButton}>
+          <Text style={styles.editLabel}>Edit profile</Text>
+        </Pressable>
         {friendsError ? <Text style={styles.errorText}>{friendsError}</Text> : null}
 
         <View style={styles.tabs}>
@@ -309,6 +314,8 @@ export function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
+  editButton: { alignItems: 'center', padding: 10, borderWidth: 1, borderColor: colors.border, borderRadius: radii.md, backgroundColor: colors.surface },
+  editLabel: { color: colors.text, fontWeight: '600' },
   safeArea: {
     flex: 1,
     backgroundColor: colors.background

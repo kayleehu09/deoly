@@ -1,9 +1,14 @@
+import { AppState } from 'react-native';
+import { getMyProfile } from '../services/profile';
+import { isUnauthorizedApiError, type UserProfile } from '../services/auth';
 import * as SecureStore from 'expo-secure-store';
 import {
   createContext,
   useContext,
   useEffect,
   useMemo,
+  useRef,
+  useCallback,
   useState,
   type PropsWithChildren
 } from 'react';
@@ -30,6 +35,8 @@ type AuthContextValue = {
   signOut: () => Promise<void>;
   deleteAccount: () => Promise<void>;
   clearSavedAuth: () => Promise<void>;
+  updateUser: (user: UserProfile, token: string) => Promise<boolean>;
+  refreshProfile: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -53,6 +60,52 @@ function wait(ms: number) {
 export function AuthProvider({ children }: PropsWithChildren) {
   const [auth, setAuth] = useState<AuthResponse | null>(null);
   const [isRestoring, setIsRestoring] = useState(true);
+  const authRef = useRef<AuthResponse | null>(null);
+  const revision = useRef(0);
+  const storageQueue = useRef<Promise<unknown>>(Promise.resolve());
+  const persist = useCallback((next: AuthResponse | null) => {
+    const operation = storageQueue.current.catch(() => undefined).then(() => next ? saveAuth(next) : clearAuth());
+    storageQueue.current = operation;
+    return operation;
+  }, []);
+  const replaceAuth = useCallback((next: AuthResponse | null) => {
+    revision.current += 1;
+    authRef.current = next;
+    setAuth(next);
+  }, []);
+  const clearSavedAuth = useCallback(async () => {
+    replaceAuth(null);
+    await persist(null);
+  }, [persist, replaceAuth]);
+  const updateUser = useCallback(async (user: UserProfile, token: string) => {
+    const current = authRef.current;
+    if (!current || current.session.token !== token) return false;
+    const next = { ...current, user };
+    replaceAuth(next);
+    try { await persist(next); return true; }
+    catch { return false; }
+  }, [persist, replaceAuth]);
+  const refreshProfile = useCallback(async () => {
+    const current = authRef.current;
+    const startedRevision = revision.current;
+    if (!current) return;
+    try {
+      const response = await getMyProfile(current.session.token);
+      if (revision.current === startedRevision) await updateUser(response.user, current.session.token);
+    } catch (error) {
+      if (revision.current === startedRevision && isUnauthorizedApiError(error)) {
+        replaceAuth(null);
+        await persist(null).catch(() => undefined);
+      }
+    }
+  }, [persist, replaceAuth, updateUser]);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') void refreshProfile();
+    });
+    return () => subscription.remove();
+  }, [refreshProfile]);
 
   useEffect(() => {
     let isMounted = true;
@@ -75,7 +128,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
         }
 
         if (isMounted) {
-          setAuth(parsedAuth);
+          replaceAuth(parsedAuth);
+          await refreshProfile();
         }
       } catch {
         await clearAuth();
@@ -102,21 +156,23 @@ export function AuthProvider({ children }: PropsWithChildren) {
       auth,
       isAuthenticated: Boolean(auth),
       isRestoring,
+      updateUser,
+      refreshProfile,
       signIn: async (input) => {
         const nextAuth = await loginWithEmail(input);
-        await saveAuth(nextAuth);
-        setAuth(nextAuth);
+        await persist(nextAuth);
+        replaceAuth(nextAuth);
       },
       signUp: async (input) => {
         const nextAuth = await signupWithEmail(input);
-        await saveAuth(nextAuth);
-        setAuth(nextAuth);
+        await persist(nextAuth);
+        replaceAuth(nextAuth);
       },
       signOut: async () => {
         const token = auth?.session.token;
 
-        setAuth(null);
-        await clearAuth();
+        replaceAuth(null);
+        await persist(null);
 
         if (token) {
           await logoutWithToken(token).catch(() => undefined);
@@ -130,15 +186,12 @@ export function AuthProvider({ children }: PropsWithChildren) {
         }
 
         await deleteAccountWithToken(token);
-        setAuth(null);
-        await clearAuth();
+        replaceAuth(null);
+        await persist(null);
       },
-      clearSavedAuth: async () => {
-        setAuth(null);
-        await clearAuth();
-      }
+      clearSavedAuth
     }),
-    [auth, isRestoring]
+    [auth, isRestoring, persist, replaceAuth, refreshProfile, updateUser, clearSavedAuth]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

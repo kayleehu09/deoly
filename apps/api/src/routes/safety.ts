@@ -1,3 +1,4 @@
+import { toPublicIdentity } from "../lib/avatars.js";
 import { Router } from "express";
 import { z } from "zod";
 import { ApiError } from "../lib/errors.js";
@@ -28,7 +29,8 @@ safetyRouter.get("/blocks", requireAuth, async (req, res, next) => {
             id: true,
             displayName: true,
             username: true,
-            avatarUrl: true
+            avatarUrl: true,
+            avatarObjectKey: true
           }
         }
       },
@@ -38,11 +40,11 @@ safetyRouter.get("/blocks", requireAuth, async (req, res, next) => {
     });
 
     res.json({
-      blocks: blocks.map((block) => ({
+      blocks: await Promise.all(blocks.map(async (block) => ({
         id: block.id,
-        user: block.blocked,
+        user: await toPublicIdentity(block.blocked, viewerId),
         createdAt: block.createdAt.toISOString()
-      }))
+      })))
     });
   } catch (error) {
     next(error);
@@ -146,7 +148,7 @@ safetyRouter.post("/posts/:postId/reports", requireAuth, async (req, res, next) 
   }
 });
 
-safetyRouter.get("/reports", requireAuth, async (_req, res, next) => {
+safetyRouter.get("/reports", requireAuth, async (req, res, next) => {
   try {
     const reports = await prisma.postReport.findMany({
       include: {
@@ -155,7 +157,8 @@ safetyRouter.get("/reports", requireAuth, async (_req, res, next) => {
             id: true,
             displayName: true,
             username: true,
-            avatarUrl: true
+            avatarUrl: true,
+            avatarObjectKey: true
           }
         },
         post: {
@@ -165,7 +168,8 @@ safetyRouter.get("/reports", requireAuth, async (_req, res, next) => {
                 id: true,
                 displayName: true,
                 username: true,
-                avatarUrl: true
+                avatarUrl: true,
+                avatarObjectKey: true
               }
             }
           }
@@ -178,19 +182,19 @@ safetyRouter.get("/reports", requireAuth, async (_req, res, next) => {
     });
 
     res.json({
-      reports: reports.map((report) => ({
+      reports: await Promise.all(reports.map(async (report) => ({
         id: report.id,
         reason: report.reason,
         details: report.details,
         createdAt: report.createdAt.toISOString(),
-        reporter: report.reporter,
+        reporter: await toPublicIdentity(report.reporter, req.auth!.user.id),
         post: {
           id: report.post.id,
           body: report.post.body,
           createdAt: report.post.createdAt.toISOString(),
-          author: report.post.author
+          author: await toPublicIdentity(report.post.author, req.auth!.user.id)
         }
-      }))
+      })))
     });
   } catch (error) {
     next(error);

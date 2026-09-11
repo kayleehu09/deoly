@@ -1,4 +1,4 @@
-import { PutObjectCommand, GetObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { PutObjectCommand, GetObjectCommand, HeadObjectCommand, CopyObjectCommand, DeleteObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { nanoid } from "nanoid";
 import { config } from "../config.js";
@@ -102,4 +102,55 @@ export async function createPostImageReadUrl(objectKey: string) {
     }),
     { expiresIn: config.r2.readUrlTtlSeconds }
   );
+}
+
+export async function createAvatarImageUpload(userId: string, contentType: AllowedImageContentType) {
+  const { client, bucketName } = getS3Client();
+  const objectKey = `users/${userId}/avatars/uploads/${nanoid(24)}.${IMAGE_EXTENSIONS[contentType]}`;
+  const expiresIn = config.r2.uploadUrlTtlSeconds;
+  return {
+    objectKey,
+    uploadUrl: await getSignedUrl(client, new PutObjectCommand({
+      Bucket: bucketName, Key: objectKey, ContentType: contentType
+    }), { expiresIn }),
+    expiresAt: new Date(Date.now() + expiresIn * 1000).toISOString(),
+    headers: { "content-type": contentType }
+  };
+}
+
+// Copy to an immutable key: an unexpired upload URL cannot overwrite a saved avatar.
+export async function copyVerifiedAvatar(sourceKey: string, destinationKey: string) {
+  const { client, bucketName } = getS3Client();
+  try {
+    const head = await client.send(new HeadObjectCommand({ Bucket: bucketName, Key: sourceKey }));
+    if (!head.ContentLength || head.ContentLength > MAX_IMAGE_UPLOAD_BYTES ||
+        !head.ContentType || !isAllowedImageContentType(head.ContentType)) {
+      throw new ApiError(400, "INVALID_AVATAR", "Choose a JPEG, PNG, or WebP image under 8 MB.");
+    }
+    const image = await client.send(new GetObjectCommand({
+      Bucket: bucketName, Key: sourceKey, Range: "bytes=0-15", IfMatch: head.ETag
+    }));
+    const bytes = Buffer.from(await image.Body!.transformToByteArray());
+    const valid = head.ContentType === "image/jpeg" ? bytes.subarray(0, 3).equals(Buffer.from([255, 216, 255]))
+      : head.ContentType === "image/png" ? bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))
+      : bytes.toString("ascii", 0, 4) === "RIFF" && bytes.toString("ascii", 8, 12) === "WEBP";
+    if (!valid) throw new ApiError(400, "INVALID_AVATAR", "That file is not a supported image.");
+    await client.send(new CopyObjectCommand({
+      Bucket: bucketName, Key: destinationKey,
+      CopySource: `${bucketName}/${sourceKey.split("/").map(encodeURIComponent).join("/")}`,
+      CopySourceIfMatch: head.ETag
+    }));
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+    const status = (error as { $metadata?: { httpStatusCode?: number } }).$metadata?.httpStatusCode;
+    if (status === 404 || status === 412) {
+      throw new ApiError(400, "AVATAR_UPLOAD_INCOMPLETE", "The photo upload is incomplete. Please choose it again.");
+    }
+    throw error;
+  }
+}
+
+export async function deleteAvatarObject(objectKey: string) {
+  const { client, bucketName } = getS3Client();
+  await client.send(new DeleteObjectCommand({ Bucket: bucketName, Key: objectKey }));
 }

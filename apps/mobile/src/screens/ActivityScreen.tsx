@@ -1,5 +1,7 @@
+import { useFocusEffect } from '../hooks/useRefreshOnFocus';
+import { DEFAULT_AVATAR_URI } from '../constants/avatar';
 import { Ionicons } from '@expo/vector-icons';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -31,7 +33,7 @@ import { formatRelativeTime } from '../utils/date';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Activity'>;
 
-const DEFAULT_AVATAR_URL = 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=400&q=80';
+const DEFAULT_AVATAR_URL = DEFAULT_AVATAR_URI;
 const FRIENDS_TIMEOUT_MS = 12000;
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string) {
@@ -95,9 +97,9 @@ export function ActivityScreen({ navigation }: Props) {
     }
   }, [token]);
 
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
     void refreshActivity();
-  }, [refreshActivity]);
+  }, [refreshActivity]));
 
   async function runRequestAction(actionId: string, action: () => Promise<void>, refreshFeed = false) {
     if (!token || busyActionId) {

@@ -1,3 +1,4 @@
+import { toPublicIdentity } from "../lib/avatars.js";
 import { Router } from "express";
 import { z } from "zod";
 import { createActivityNotification } from "../lib/activity-notifications.js";
@@ -27,7 +28,8 @@ friendsRouter.get("/", requireAuth, async (req, res, next) => {
             id: true,
             displayName: true,
             username: true,
-            avatarUrl: true
+            avatarUrl: true,
+            avatarObjectKey: true
           }
         },
         addressee: {
@@ -35,7 +37,8 @@ friendsRouter.get("/", requireAuth, async (req, res, next) => {
             id: true,
             displayName: true,
             username: true,
-            avatarUrl: true
+            avatarUrl: true,
+            avatarObjectKey: true
           }
         }
       },
@@ -44,6 +47,10 @@ friendsRouter.get("/", requireAuth, async (req, res, next) => {
       }
     });
 
+    const identities = new Map(await Promise.all(friendships.map(async (friendship) => {
+      const other = friendship.requesterId === viewerId ? friendship.addressee : friendship.requester;
+      return [other.id, await toPublicIdentity(other, viewerId)] as const;
+    })));
     res.json({
       friends: friendships.flatMap((friendship) => {
         const isRequester = friendship.requesterId === viewerId;
@@ -58,7 +65,7 @@ friendsRouter.get("/", requireAuth, async (req, res, next) => {
           status: friendship.status.toLowerCase(),
           direction:
             friendship.status === "ACCEPTED" ? "accepted" : isRequester ? "outgoing" : "incoming",
-          user: otherUser,
+          user: identities.get(otherUser.id),
           createdAt: friendship.createdAt.toISOString(),
           acceptedAt: friendship.acceptedAt?.toISOString() ?? null
         }];

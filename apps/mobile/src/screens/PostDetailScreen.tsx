@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useFocusEffect } from '../hooks/useRefreshOnFocus';
+import { useCallback, useState } from 'react';
 import { ActivityIndicator, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
@@ -39,9 +40,9 @@ export function PostDetailScreen({ route }: Props) {
     }
   };
 
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
     void loadPost();
-  }, [auth, route.params.postId]);
+  }, [auth, route.params.postId]));
 
   const handleReactionPress: Parameters<typeof PostCard>[0]['onReactionPress'] = async (selectedPost, emoji) => {
     await togglePostReaction(selectedPost, emoji);
