@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { rmSync, writeFileSync, readFileSync } from "node:fs";
+import { rmSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import request from "supertest";
 import { beforeAll, beforeEach, afterAll, describe, expect, it, vi } from "vitest";
@@ -41,15 +41,9 @@ const get = (path: string, token = owner.token) => request(app).get(path).set("a
 beforeAll(async () => {
   directory = (await import("../lib/prisma.js") as unknown as { directory: string }).directory;
   writeFileSync(`${directory}/test.db`, "");
-  const schema = readFileSync(new URL("../../prisma/schema.prisma", import.meta.url), "utf8")
-    .replace(/  avatarObjectKey +String\?\n/, "")
-    .replace(/model AvatarUpload \{[\s\S]*?\n\}/, "");
-  writeFileSync(`${directory}/before-profile.prisma`, schema);
   execFileSync(process.execPath, [fileURLToPath(new URL("../../../../node_modules/prisma/build/index.js", import.meta.url)),
-    "db", "push", "--skip-generate", "--schema", `${directory}/before-profile.prisma`],
+    "migrate", "deploy", "--schema", fileURLToPath(new URL("../../prisma/schema.prisma", import.meta.url))],
     { env: { ...process.env, DATABASE_URL: `file:${directory}/test.db` }, stdio: "pipe" });
-  const migration = readFileSync(new URL("../../prisma/migrations/20260911000000_add_profile_avatars/migration.sql", import.meta.url), "utf8");
-  await prisma.$transaction(migration.split(";").filter((sql) => sql.trim()).map((sql) => prisma.$executeRawUnsafe(sql)));
 }, 30000);
 
 beforeEach(async () => {

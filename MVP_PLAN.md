@@ -140,55 +140,18 @@ Expected result:
 You have a working private beta MVP.
 
 Deferred / Before Beta
-Review habit:
-At the start of each week, check this section.
-At the end of each week, move anything that is now urgent into the active week.
-Before Week 8 full test or private beta, no high-risk deferred item should still be unresolved.
-Tasks:
-Create clean Prisma migration baseline before private beta
-Why it matters: database changes become repeatable and safer.
-When it must be done: before Week 8 full test or private beta.
-Risk if ignored: future database changes may be hard to replay or debug.
-Decide final photo storage provider before Week 4 implementation
+1. Decide final photo storage provider before Week 4 implementation
 Why it matters: upload code depends on the storage service.
 When it must be done: before building real photo upload.
 Risk if ignored: upload work may need to be rewritten.
-Confirm private photo access rules before real uploads
+2. Confirm private photo access rules before real uploads
 Why it matters: photos should not become public by accident.
 When it must be done: before saving real user photos.
 Risk if ignored: private images or user data could be exposed.
-Run full auth/session smoke test after reseeding and app reloads
+3. Run full auth/session smoke test after reseeding and app reloads
 Why it matters: saved login should recover cleanly when backend sessions change.
 When it must be done: after auth/session changes and before private beta.
 Risk if ignored: users may see broken feed/profile states instead of login.
-Final pass on disappearing deoly/archive behavior
-Why it matters: home feed, profile, and archive need clear rules for expired deolys.
-When it must be done: before Week 8 full test.
-Risk if ignored: old posts may show or hide in confusing places.
-
-Deferred / Later Polish
-Tasks:
-Additional account/profile settings
-Decision: profile editing includes display name, username (no cooldown), bio, and a library photo. Password/email changes, friends-list visibility controls, camera capture for avatars, pasted image URLs, and web editing are outside this step.
-When to revisit: after private beta essentials and the profile-editing device checks are complete.
-Risk if ignored: low for this MVP step; current login and post privacy rules remain in place.
-Friend request accepted micro-interaction
-Remembered idea: add a fun burst or tiny thin-lettered “Accepted request!” pop-up after accepting a friend request.
-Why it matters: adds delight without changing core friend-request behavior.
-When to revisit: after core friend request, feed, posting, and safety flows are stable.
-Risk if ignored: low; the app still works, but friend actions may feel less special.
-Full deoly archive calendar
-Why it matters: expired deolys should eventually be browsable from a real history/calendar instead of only placeholder UI.
-When to revisit: after disappearing-post rules and storage are stable.
-Risk if ignored: users may expect old deolys to be findable but only see a placeholder.
-Richer friend account pages
-Why it matters: the first friend profile page is intentionally simple and uses already-loaded feed data.
-When to revisit: after MVP feed, profile, and posting behavior are reliable.
-Risk if ignored: friend profiles may feel thin, but core feed navigation still works.
-Saved or permanent posts
-Decision: permanent posting is out of the MVP. Keep the main posting flow focused on 24-hour deolys, and revisit saved/permanent profile posts after the private beta basics work.
-When to revisit: after the MVP feed, posting, reactions, comments, and safety flows are reliable.
-Risk if ignored: low for MVP; the app can still work with disappearing posts only.
 
 MVP Checklist
 Make an account

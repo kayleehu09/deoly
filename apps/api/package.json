@@ -9,8 +9,10 @@
     "start": "node dist/server.js",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
-    "prisma:seed": "tsx prisma/seed.ts",
-    "test": "vitest run"
+    "prisma:seed": "prisma db seed",
+    "test": "vitest run",
+    "prisma:deploy": "prisma migrate deploy",
+    "prisma:verify": "node scripts/verify-database.mjs"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

@@ -29,6 +29,8 @@ The app is ahead of the original week-by-week MVP plan in feature breadth. Most 
 
 Implemented:
 
+- complete Prisma migration baseline with isolated migration/seed verification
+
 - email signup, login, logout, saved mobile sessions, and account deletion
 - authenticated API routes and session recovery handling
 - user search with friendship status
@@ -49,34 +51,48 @@ Still needed before private beta:
 - add or confirm delete-your-own-post flow
 - run a full 3-user smoke test across login, friends, feed, posting, reactions, comments, block, account deletion, and 24-hour expiration
 - confirm real R2 private-photo access rules before real user photos
-- create a clean Prisma migration baseline before private beta
 - make a final pass on disappearing deoly/archive behavior
 
 ## Development Setup
 
-Install Node.js 20.19 or newer, then install dependencies from the workspace root:
+Use Node.js 20.19 or newer. From the workspace root:
 
 ```bash
-npm install
-```
-
-Generate the Prisma client if needed:
-
-```bash
+npm ci
+# New checkout only; do not overwrite an existing API .env.
+cp .env.example apps/api/.env
 npm run db:generate
-```
-
-Apply database migrations:
-
-```bash
-npm run db:migrate
-```
-
-Seed local data:
-
-```bash
+# Create an empty SQLite file if it does not exist (does not erase existing data).
+touch apps/api/prisma/beta-dev.db
+npm run db:deploy
 npm run db:seed
 ```
+
+The example uses `DATABASE_URL="file:./beta-dev.db"`, resolved relative to
+`apps/api/prisma/schema.prisma`. API commands load `apps/api/.env`.
+An exported `DATABASE_URL` overrides the file, so unset it before using this
+example if your shell already points at another database.
+
+**Seeding replaces database users and social data with demo fixtures. Use it only
+on a disposable development database, never a database containing beta users.**
+Demo logins: `ava@example.com`, `noah@example.com`, and `zoe@example.com`, all
+with password `password123`. Photo uploads require your private R2 configuration;
+the seed alone does not provision storage or upload photos.
+
+Run the isolated database check:
+
+```bash
+npm run db:verify
+```
+
+It creates and removes a temporary database, applies the committed migrations
+twice, checks migration status and schema equality, and verifies seed/reseed
+counts and foreign keys. It overrides `DATABASE_URL` only for its subprocesses
+and does not modify your development database. Run `npm run db:generate` first
+if the Prisma client is missing or stale.
+
+See [Database setup and baseline](DATABASE_SETUP.md) for existing database
+transition steps and future schema changes.
 
 ## Running The App
 
@@ -171,7 +187,7 @@ Next MVP work:
 
 1. Delete own post.
 2. Full private-beta smoke test with three seeded users.
-3. Prisma migration baseline.
+3. Use the verified Prisma baseline for beta database setup.
 4. R2 privacy verification with real credentials.
 5. Final polish and bug fixes.
 
