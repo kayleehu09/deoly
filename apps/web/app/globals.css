@@ -75,6 +75,51 @@ textarea {
   padding: 32px;
 }
 
+.policy-acceptance {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.policy-acceptance input {
+  margin-top: 4px;
+  accent-color: var(--accent);
+}
+
+.policy-acceptance a {
+  color: var(--text);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.policy-page h2 {
+  margin: 24px 0 6px;
+  font-family: var(--font-display);
+}
+
+.policy-page p {
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.policy-review-note {
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+  color: var(--text) !important;
+  font-weight: 600;
+}
+
+.policy-back {
+  display: inline-block;
+  margin-top: 16px;
+  text-align: center;
+}
+
 .brand-kicker {
   font-size: 0.82rem;
   letter-spacing: 0.16em;

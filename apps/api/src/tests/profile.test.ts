@@ -53,7 +53,16 @@ beforeEach(async () => {
   await prisma.user.deleteMany();
   await prisma.avatarUpload.deleteMany();
   async function signup(username: string) {
-    const result = await request(app).post('/auth/signup').send({ displayName: username, username, email: `${username}@test.example`, password: 'password123' });
+    const result = await request(app).post('/auth/signup').send({
+      displayName: username,
+      username,
+      email: `${username}@test.example`,
+      password: 'password123',
+      dateOfBirth: '2000-01-01',
+      termsVersion: 'draft-2026-11-08',
+      privacyNoticeVersion: 'draft-2026-11-08',
+      acceptedPolicies: true
+    });
     expect(result.status).toBe(201);
     return { id: result.body.user.id as string, token: result.body.session.token as string };
   }
@@ -114,7 +123,16 @@ describe('Profile editing with a real database', () => {
     expect(conflict.status).toBe(409);
     expect(conflict.body.error.code).toBe('USERNAME_TAKEN');
     expect((await get('/me')).body.user.displayName).toBe('owner');
-    const signup = await request(app).post('/auth/signup').send({ displayName: 'Duplicate', username: 'OWNER', email: 'different@test.example', password: 'password123' });
+    const signup = await request(app).post('/auth/signup').send({
+      displayName: 'Duplicate',
+      username: 'OWNER',
+      email: 'different@test.example',
+      password: 'password123',
+      dateOfBirth: '2000-01-01',
+      termsVersion: 'draft-2026-11-08',
+      privacyNoticeVersion: 'draft-2026-11-08',
+      acceptedPolicies: true
+    });
     expect(signup.status).toBe(409);
   });
 

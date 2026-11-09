@@ -16,6 +16,10 @@ model User {
   bio                       String?
   avatarUrl                 String?
   avatarObjectKey           String?
+  termsAcceptedAt           DateTime?
+  termsVersion              String?
+  privacyNoticeAcceptedAt   DateTime?
+  privacyNoticeVersion      String?
   createdAt                 DateTime               @default(now())
   updatedAt                 DateTime               @updatedAt
   posts                     Post[]

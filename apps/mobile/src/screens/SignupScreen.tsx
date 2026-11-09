@@ -1,15 +1,18 @@
 import { FontAwesome, Ionicons } from '@expo/vector-icons';
-import { Alert, KeyboardAvoidingView, Platform, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Modal, Platform, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useEffect, useRef, useState } from 'react';
 
 import { AuthButton } from '../components/AuthButton';
 import { colors, radii, spacing, typography } from '../constants/theme';
 import { useAuth } from '../hooks/useAuth';
+import { isAtLeast13, normalizeDateOfBirth, PRIVACY_NOTICE_VERSION, TERMS_VERSION } from '../constants/legal';
 
 type AuthMode = 'options' | 'signup' | 'signin';
+type PolicyDocument = 'terms' | 'privacy' | null;
 
 export function SignupScreen() {
   const { signIn, signUp } = useAuth();
+  const dateOfBirthInputRef = useRef<TextInput>(null);
   const displayNameInputRef = useRef<TextInput>(null);
   const usernameInputRef = useRef<TextInput>(null);
   const emailInputRef = useRef<TextInput>(null);
@@ -19,6 +22,11 @@ export function SignupScreen() {
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [dateOfBirth, setDateOfBirth] = useState('');
+  const [signupStage, setSignupStage] = useState<'age' | 'details'>('age');
+  const [ageDenied, setAgeDenied] = useState(false);
+  const [acceptedPolicies, setAcceptedPolicies] = useState(false);
+  const [policyDocument, setPolicyDocument] = useState<PolicyDocument>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -32,6 +40,11 @@ export function SignupScreen() {
 
   function switchMode(nextMode: AuthMode) {
     setError(null);
+    if (nextMode === 'signup') {
+      setSignupStage('age');
+      setDateOfBirth('');
+      setAcceptedPolicies(false);
+    }
     setAuthMode(nextMode);
   }
 
@@ -44,6 +57,10 @@ export function SignupScreen() {
     if (isSignupMode || isSigninMode) {
       const focusTimer = setTimeout(() => {
         if (isSignupMode) {
+          if (signupStage === 'age') {
+            dateOfBirthInputRef.current?.focus();
+            return;
+          }
           displayNameInputRef.current?.focus();
           return;
         }
@@ -54,7 +71,7 @@ export function SignupScreen() {
     }
 
     return undefined;
-  }, [isSigninMode, isSignupMode]);
+  }, [isSigninMode, isSignupMode, signupStage]);
 
   async function handleEmailSignup() {
     if (busy) {
@@ -64,6 +81,11 @@ export function SignupScreen() {
     const trimmedDisplayName = displayName.trim();
     const trimmedUsername = username.trim();
     const trimmedEmail = email.trim();
+
+    if (!acceptedPolicies) {
+      setError('Please agree to the Terms and acknowledge the Privacy Notice to continue.');
+      return;
+    }
 
     if (!trimmedDisplayName || !trimmedUsername || !trimmedEmail || password.length < 8) {
       setError('Add your name, username, email, and a password with at least 8 characters.');
@@ -78,13 +100,40 @@ export function SignupScreen() {
         displayName: trimmedDisplayName,
         username: trimmedUsername,
         email: trimmedEmail,
-        password
+        password,
+        dateOfBirth,
+        termsVersion: TERMS_VERSION,
+        privacyNoticeVersion: PRIVACY_NOTICE_VERSION,
+        acceptedPolicies: true
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not create your account.');
     } finally {
       setBusy(false);
     }
+  }
+
+  function continueFromAgeCheck() {
+    const normalizedDate = normalizeDateOfBirth(dateOfBirth);
+    if (!normalizedDate) {
+      setError('Enter a valid date of birth in YYYY-MM-DD format.');
+      return;
+    }
+    if (!isAtLeast13(normalizedDate)) {
+      setDateOfBirth('');
+      setAgeDenied(true);
+      setError('Deoly is for people age 13 and older. You can’t create an account.');
+      return;
+    }
+    setDateOfBirth(normalizedDate);
+    setError(null);
+    setSignupStage('details');
+  }
+
+  function returnFromSignupDetails() {
+    setError(null);
+    setAcceptedPolicies(false);
+    setSignupStage('age');
   }
 
   async function handleEmailSignin() {
@@ -129,7 +178,7 @@ export function SignupScreen() {
         >
           {isEmailMode ? (
             <View style={styles.emailTopBar}>
-              <Pressable accessibilityLabel="Back to sign up options" accessibilityRole="button" onPress={returnToOptions} style={styles.backButton}>
+              <Pressable accessibilityLabel={isSignupMode && signupStage === 'details' ? 'Back to age check' : 'Back to sign up options'} accessibilityRole="button" onPress={isSignupMode && signupStage === 'details' ? returnFromSignupDetails : returnToOptions} style={styles.backButton}>
                 <Ionicons name="chevron-back" size={24} color="#5F4630" />
               </Pressable>
               <Text style={styles.emailTopBarTitle}>{isSignupMode ? 'Create account' : 'Sign in'}</Text>
@@ -158,7 +207,27 @@ export function SignupScreen() {
           </View>
 
           <View style={styles.actions}>
-            {isSignupMode ? (
+            {isSignupMode && signupStage === 'age' ? (
+              <View style={styles.form}>
+                <Text style={styles.fieldLabel}>Date of birth</Text>
+                <TextInput
+                  accessibilityLabel="Date of birth in year-month-day format"
+                  autoCapitalize="none"
+                  editable={!busy && !ageDenied}
+                  keyboardType="numbers-and-punctuation"
+                  onChangeText={setDateOfBirth}
+                  placeholder="YYYY-MM-DD"
+                  placeholderTextColor="#9D8D7D"
+                  ref={dateOfBirthInputRef}
+                  returnKeyType="done"
+                  style={styles.input}
+                  value={dateOfBirth}
+                />
+                <Text style={styles.helperText}>Enter your birth date to check whether you can create an account.</Text>
+                {error ? <Text style={styles.errorText}>{error}</Text> : null}
+                {ageDenied ? null : <AuthButton label="Continue" variant="primary" onPress={continueFromAgeCheck} />}
+              </View>
+            ) : isSignupMode ? (
               <View style={styles.form}>
                 <TextInput
                   autoCapitalize="words"
@@ -223,10 +292,25 @@ export function SignupScreen() {
                   value={password}
                 />
 
+                <View style={styles.policyRow}>
+                  <Pressable
+                    accessibilityLabel={acceptedPolicies ? 'Policies accepted' : 'Accept the Terms and Privacy Notice'}
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked: acceptedPolicies }}
+                    onPress={() => setAcceptedPolicies((current) => !current)}
+                    style={styles.policyCheckbox}
+                  >
+                    <Ionicons name={acceptedPolicies ? 'checkbox' : 'square-outline'} size={22} color="#7A5A3C" />
+                  </Pressable>
+                  <Text style={styles.policyText}>
+                    I agree to the <Text onPress={() => setPolicyDocument('terms')} style={styles.policyLink}>Terms of Service</Text> and acknowledge the <Text onPress={() => setPolicyDocument('privacy')} style={styles.policyLink}>Privacy Notice</Text>.
+                  </Text>
+                </View>
+
                 {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
                 <AuthButton
-                  disabled={busy}
+                  disabled={busy || !acceptedPolicies}
                   label={busy ? 'Creating account...' : 'Create account'}
                   loading={busy}
                   variant="primary"
@@ -317,6 +401,35 @@ export function SignupScreen() {
           </Text>
         </ScrollView>
       </KeyboardAvoidingView>
+      <Modal animationType="slide" onRequestClose={() => setPolicyDocument(null)} transparent visible={policyDocument !== null}>
+        <View style={styles.policyModalBackdrop}>
+          <View style={styles.policyModal}>
+            <View style={styles.policyModalHeader}>
+              <Text style={styles.policyModalTitle}>{policyDocument === 'terms' ? 'Terms of Service' : 'Privacy Notice'}</Text>
+              <Pressable accessibilityLabel="Close policy" accessibilityRole="button" onPress={() => setPolicyDocument(null)} style={styles.backButton}>
+                <Ionicons name="close" size={22} color="#5F4630" />
+              </Pressable>
+            </View>
+            <ScrollView contentContainerStyle={styles.policyModalBody}>
+              <Text style={styles.policyDraft}>Draft for legal review before public launch · {policyDocument === 'terms' ? TERMS_VERSION : PRIVACY_NOTICE_VERSION}</Text>
+              {policyDocument === 'terms' ? (
+                <>
+                  <Text style={styles.policyParagraph}>Deoly is for people age 13 and older. By using Deoly, you agree to provide accurate account information, keep your password private, and use the service lawfully and respectfully.</Text>
+                  <Text style={styles.policyParagraph}>You are responsible for the content you share. Do not harass, threaten, impersonate, or share content you do not have permission to post. You can block users and delete your account in the app.</Text>
+                  <Text style={styles.policyParagraph}>These draft terms need legal review and final contact, dispute, and service details before public launch.</Text>
+                </>
+              ) : (
+                <>
+                  <Text style={styles.policyParagraph}>Deoly uses the account details you provide, such as your display name, username, and email, to create and secure your account. Passwords are stored as protected hashes.</Text>
+                  <Text style={styles.policyParagraph}>If you add profile details, photos, posts, comments, reactions, or friendships, Deoly processes them to provide the app’s social features. Your profile and posts are shown according to the app’s visibility settings.</Text>
+                  <Text style={styles.policyParagraph}>The date of birth you enter is checked during signup and is not saved to your account. You can request account deletion from the app’s settings.</Text>
+                  <Text style={styles.policyParagraph}>This draft still needs legal review and final details about service providers, retention, launch regions, and a support contact before public launch.</Text>
+                </>
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -433,6 +546,81 @@ const styles = StyleSheet.create({
   form: {
     width: '100%',
     gap: spacing.sm
+  },
+  fieldLabel: {
+    color: '#5F4630',
+    fontFamily: typography.bodyFamily,
+    fontSize: 14,
+    fontWeight: '600'
+  },
+  helperText: {
+    color: '#74685C',
+    fontFamily: typography.bodyFamily,
+    fontSize: 13,
+    lineHeight: 19
+  },
+  policyRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    paddingVertical: spacing.xs
+  },
+  policyCheckbox: {
+    paddingTop: 1
+  },
+  policyText: {
+    flex: 1,
+    color: '#74685C',
+    fontFamily: typography.bodyFamily,
+    fontSize: 13,
+    lineHeight: 19
+  },
+  policyLink: {
+    color: '#5F4630',
+    fontWeight: '700',
+    textDecorationLine: 'underline'
+  },
+  policyModalBackdrop: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(25, 20, 15, 0.45)'
+  },
+  policyModal: {
+    maxHeight: '82%',
+    minHeight: '55%',
+    backgroundColor: '#FBF6EF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: spacing.lg
+  },
+  policyModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.md
+  },
+  policyModalTitle: {
+    color: '#2D251E',
+    fontFamily: typography.titleFamily,
+    fontSize: 24,
+    fontWeight: '700'
+  },
+  policyModalBody: {
+    gap: spacing.md,
+    paddingBottom: spacing.xl
+  },
+  policyDraft: {
+    color: '#A4493D',
+    fontFamily: typography.bodyFamily,
+    fontSize: 13,
+    fontWeight: '700',
+    lineHeight: 19
+  },
+  policyParagraph: {
+    color: '#5F5347',
+    fontFamily: typography.bodyFamily,
+    fontSize: 15,
+    lineHeight: 23
   },
   input: {
     width: '100%',

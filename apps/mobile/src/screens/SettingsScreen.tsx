@@ -97,7 +97,7 @@ export function SettingsScreen({ navigation }: Props) {
           <SettingsRow icon="ban-outline" label="Blocked" onPress={() => navigation.navigate('BlockedUsers')} />
           <SettingsRow icon="help-circle-outline" label="FAQs" onPress={() => handleComingSoon('FAQs')} />
           <SettingsRow icon="notifications-outline" label="Notifications" onPress={() => handleComingSoon('Notifications')} />
-          <SettingsRow icon="chatbubble-ellipses-outline" label="Help" onPress={() => handleComingSoon('Help')} />
+          <SettingsRow icon="chatbubble-ellipses-outline" label="Help" onPress={() => navigation.navigate('Help')} />
         </View>
 
         <View style={styles.dangerSection}>

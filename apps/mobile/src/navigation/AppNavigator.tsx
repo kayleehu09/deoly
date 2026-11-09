@@ -14,6 +14,7 @@ import { CreatePostCameraScreen } from '../screens/CreatePostCameraScreen';
 import { DeolyArchiveScreen } from '../screens/DeolyArchiveScreen';
 import { FriendProfileScreen } from '../screens/FriendProfileScreen';
 import { HomeScreen } from '../screens/HomeScreen';
+import { HelpScreen } from '../screens/HelpScreen';
 import { PostComposerScreen } from '../screens/PostComposerScreen';
 import { PostDetailScreen } from '../screens/PostDetailScreen';
 import { PrayerPlaceholderScreen } from '../screens/PrayerPlaceholderScreen';
@@ -147,6 +148,7 @@ export function AppNavigator() {
             <RootStack.Screen name="BlockedUsers" component={BlockedUsersScreen} options={{ headerShown: false }} />
             <RootStack.Screen name="EditProfile" component={EditProfileScreen} options={{ headerShown: false }} />
             <RootStack.Screen name="Settings" component={SettingsScreen} options={{ headerShown: false }} />
+            <RootStack.Screen name="Help" component={HelpScreen} options={{ headerShown: false }} />
             <RootStack.Screen
               name="PostComposer"
               component={PostComposerScreen}

@@ -21,6 +21,14 @@ export function getBlockedUsers(token: string) {
   return apiFetch<BlocksResponse>('/safety/blocks', undefined, token);
 }
 
+export function submitPostReport(postId: string, reason: string, details: string, token: string) {
+  return apiFetch<{ reportId: string }>(
+    `/safety/posts/${encodeURIComponent(postId)}/reports`,
+    { method: 'POST', body: JSON.stringify({ reason, details: details.trim() || undefined }) },
+    token
+  );
+}
+
 export function blockUser(userId: string, token: string) {
   return apiFetch<{ blockId: string }>(
     '/safety/blocks',

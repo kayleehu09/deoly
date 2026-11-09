@@ -150,6 +150,15 @@ safetyRouter.post("/posts/:postId/reports", requireAuth, async (req, res, next) 
 
 safetyRouter.get("/reports", requireAuth, async (req, res, next) => {
   try {
+    const reviewerEmails = (process.env.REPORT_REVIEWER_EMAILS ?? "")
+      .split(",")
+      .map((email) => email.trim().toLowerCase())
+      .filter(Boolean);
+
+    if (!reviewerEmails.includes(req.auth!.user.email.toLowerCase())) {
+      throw new ApiError(403, "REPORT_REVIEW_FORBIDDEN", "You are not allowed to review reports.");
+    }
+
     const reports = await prisma.postReport.findMany({
       include: {
         reporter: {

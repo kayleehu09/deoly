@@ -36,7 +36,16 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   return response.json() as Promise<T>;
 }
 
-export function signup(input: { displayName: string; username: string; email: string; password: string }) {
+export function signup(input: {
+  displayName: string;
+  username: string;
+  email: string;
+  password: string;
+  dateOfBirth: string;
+  termsVersion: string;
+  privacyNoticeVersion: string;
+  acceptedPolicies: true;
+}) {
   return apiFetch<AuthResponse>("/auth/signup", {
     method: "POST",
     body: JSON.stringify(input)

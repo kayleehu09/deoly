@@ -1,5 +1,6 @@
 import Constants from 'expo-constants';
 import type { ApiErrorShape } from '@deoly/shared';
+import { PRIVACY_NOTICE_VERSION, TERMS_VERSION } from '../constants/legal';
 
 export type AuthSession = {
   token: string;
@@ -26,6 +27,10 @@ export type SignupInput = {
   username: string;
   email: string;
   password: string;
+  dateOfBirth: string;
+  termsVersion: typeof TERMS_VERSION;
+  privacyNoticeVersion: typeof PRIVACY_NOTICE_VERSION;
+  acceptedPolicies: true;
 };
 
 export type LoginInput = {
